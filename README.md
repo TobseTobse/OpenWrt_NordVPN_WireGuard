@@ -60,7 +60,7 @@ If you are on Windows you will need a tool like [PuTTY](https://www.chiark.green
 
 `ssh root@192.168.1.1`
 
-... or whatever is the IP address of your OpenWrt router and login with the password you have chosen during the OpenWrt installation. Once you'r logged in, do that:
+... or whatever is the IP address of your OpenWrt router and login with the password you have chosen during the OpenWrt installation. Once you're logged in, do that:
 
 ```
 cd /root
