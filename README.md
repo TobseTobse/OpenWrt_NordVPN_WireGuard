@@ -15,7 +15,7 @@ Turned out I was right.
 ### Prerequisites
 
 - a router with a preferably strong CPU where you can run OpenWrt on. Check OpenWrt's [Table of Hardware](https://openwrt.org/toh) **before** buying the router.
-- Your NordVPN WireGuard private key (that's the tricky part in this installation)
+- your NordVPN WireGuard private key (that's the tricky part in this installation)
 
 ### Obtaining your NordVPN WireGuard key
 
