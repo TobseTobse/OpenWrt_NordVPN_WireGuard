@@ -66,11 +66,11 @@ If you are on Windows you will need a tool like [PuTTY](https://www.chiark.green
 cd /root
 mkdir NordVPN
 cd NordVPN
-wget -O update https://github.com/TobseTobse/OpenWrt_NordVPN_WireGuard/update
-chmod +x ./update
+wget -O update https://raw.githubusercontent.com/TobseTobse/OpenWrt_NordVPN_WireGuard/main/update
+chmod +x update
 ./update
 ```
 
 This should download all the scripts in this project.
 
-... to be continued ...
+Please stay tuned. I will need to implement some more things. Final update will be here within the next hours. Thanks for your patience.
