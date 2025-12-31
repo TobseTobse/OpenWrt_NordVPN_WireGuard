@@ -1,5 +1,5 @@
 # OpenWrt_NordVPN_WireGuard
-A script collection to connect a router via WireGuard with NordVPN
+A script collection to connect a router with NordVPN via WireGuard
 
 ### Synopsis
 
@@ -73,4 +73,4 @@ chmod +x update
 
 This should download all the scripts in this project.
 
-Please stay tuned. I will need to implement some more things. Final update will be here within the next hours. Thanks for your patience.
+Please stay tuned. I need to implement some more things. Final update will be here within the next hours. Thanks for your patience.
