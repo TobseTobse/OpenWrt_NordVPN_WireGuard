@@ -1,0 +1,46 @@
+#!/bin/ash
+
+PACKAGES="wireguard-tools,kmod-wireguard,luci-proto-wireguard,luci"
+
+# Add script directory to PATH if it's not there yet
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+if ! grep -q "$SCRIPT_DIR" /etc/profile 2>/dev/null; then
+	echo "[*] Adding scripts directory to PATH..."
+	{
+    echo ""
+    echo "# Added by NordVPN WireGuard scripts installer on $(date)"
+    echo "PATH=\$PATH:$SCRIPT_DIR"
+    echo "export PATH"
+  } >> /etc/profile
+fi
+
+# Find scripts without executable flag and make them executable
+for FILE in "$SCRIPT_DIR"/*; do
+  [ -f "$FILE" ] || continue
+  if [ ! -x "$FILE" ]; then
+    echo "[*] Making $FILE executable..."
+		chmod +x $FILE
+    break
+  fi
+done
+
+# Install missing packages
+UPDATED_REPO=false
+IFS=','
+for package in $PACKAGES; do
+	opkg status $package >/dev/null 2>&1
+	if [ ! $? -eq 0 ]; then
+		echo "[*] Installing $package..."
+		if [ "$UPDATED_REPO" == "false" ]; then
+			opkg update
+			UPDATED_REPO=true
+		fi
+	  opkg install $package 2>/dev/null
+	fi
+done
+
+if [ ! -f "/etc/wireguard/privatekey" ] || [ ! -f "/etc/wireguard/publickey" ]; then
+	echo "[*] Generating WireGuard key pair..."
+	wg genkey > /etc/wireguard/privatekey 2>/dev/null
+	wg pubkey < /etc/wireguard/privatekey > /etc/wireguard/publickey 2>/dev/null
+fi

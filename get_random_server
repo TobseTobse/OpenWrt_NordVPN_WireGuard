@@ -1,0 +1,144 @@
+#!/bin/ash
+
+SERVERSLISTFILE=/tmp/servers.list
+
+# Load config
+source /root/config/master_config
+if [ -f "/root/config/my_config" ]; then
+  source /root/config/my_config
+fi
+
+# Group servers by country, randomly pick a country, then a server
+awk -v preferred_country="$1" -v ignore="$IGNORECOUNTRIES" \
+-v exclusive="$EXCLUSIVECOUNTRIES" -v bridges="$BRIDGESERVERS" \
+-v onion="$ONIONSERVERS" -v socks="$SOCKSSERVERS" '
+BEGIN {
+	srand()
+
+	# Treat parameters
+  FS=","
+  split("", ignorecountries)
+  if (ignore != "") {
+	  n = split(ignore, country, ",")
+	  for (i = 1; i <= n; i++) {
+	    ignorecountries[country[i]] = 1
+	  }
+	}
+	split("", exclusivecountries)
+	if (exclusive != "") {
+	  n = split(exclusive, country, ",")
+	  for (i = 1; i <= n; i++) {
+	    exclusivecountries[country[i]] = 1
+	  }
+	}
+
+}
+
+{
+	line = $0
+
+	# Extract country from the beginning of the line
+	i = 1
+	country = ""
+	while (i <= length(line)) {
+		c = substr(line, i, 1)
+		if (c ~ /[A-Za-z-]/) {
+			country = country c
+			i++
+			if (substr(line, i, 1) ~ /[0-9]/) {
+				break
+			}
+		} else {
+			break
+		}
+	}
+
+	if (country == "") {
+		country = line
+	}
+
+	ignore = 0
+
+	# Check if bridge servers are allowed
+	if (bridges != "yes" && line ~ /-/) {
+		ignore = 1
+	}
+
+	# Check normal servers for IGNORECOUNTRIES
+	if (exclusive == "" && country in ignorecountries) {
+		ignore = 1
+	}
+
+	# Check bridge servers for IGNORECOUNTRIES
+ 	if (index(country, "-") > 0) {
+    split(country, parts, "-")
+    if (parts[1] in ignorecountries \
+     || parts[2] in ignorecountries) {
+     	ignore = 1
+    }
+	}
+
+	# Check on onion servers
+	if (onion != "yes" && country ~ /onion/) {
+		ignore = 1
+	}
+
+	# Check on socks servers
+	if (socks != "yes" && country ~ /socks/) {
+		ignore = 1
+	}
+
+	# Build comma-separated list of values per country
+	if ((exclusive != "" && country in exclusivecountries) \
+	 || ignore == 0) {
+		if (country in countries) {
+			countries[country] = countries[country] "," line
+		} else {
+			countries[country] = line
+		}
+	}
+
+}
+
+END {
+
+	# Collect filtered countries into an array
+	amount_countries = 0
+	amount_filtered_servers = 0
+	for (k in countries) {
+		amount_countries++
+		key[amount_countries] = k
+		split(countries[k], servers_in_country, ",")
+		for (l in servers_in_country) {
+			amount_filtered_servers++
+		}
+	}
+
+	if (amount_countries == 0) {
+		exit 0
+	}
+
+	# Pick random country
+	gi = int(rand() * amount_countries) + 1
+	country = key[gi]
+  if (preferred_country != "") country = preferred_country
+
+	# Split its CSV list of values
+	split(countries[country], servers_in_country, ",")
+
+	amount_servers_in_country = 0
+	for (i in servers_in_country) {
+		amount_servers_in_country++
+	}
+
+	if (amount_servers_in_country == 0) {
+		exit 0
+	}
+
+	# Pick random server from the chosen country
+	vi = int(rand() * amount_servers_in_country) + 1
+
+	print sprintf("%s,%d,%d", servers_in_country[vi], \
+	amount_countries, amount_filtered_servers)
+}
+' "$SERVERSLISTFILE"

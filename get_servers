@@ -1,0 +1,90 @@
+#!/bin/ash
+
+SERVERLISTURL=https://api.nordvpn.com/v1/servers?limit=16384
+SERVERSJSONFILE=/tmp/servers.json
+SERVERSLISTFILE=/tmp/servers.list
+SERVERLOADSFILE=/tmp/servers.loads
+SERVERKEYSFILE=/tmp/servers.keys
+
+echo "[*] Getting servers..."
+
+# Remove servers list file if it is empty
+if [ -f "$SERVERSLISTFILE" ]; then
+  SERVERS=`cat $SERVERSLISTFILE`
+  if [ "$SERVERS" == "" ]; then
+    rm $SERVERSLISTFILE
+  fi
+fi
+
+# Update the NordVPN servers file if it is older than 1 hour
+GET_SERVER_JSON=false
+NOW=$(date +%s)
+LIMIT=$((NOW - 60*60))
+if [ ! -f "$SERVERSJSONFILE" ]; then
+  GET_SERVER_JSON=true
+else
+  FILE_DATE=$(ls --full-time -l "$SERVERSJSONFILE" | awk '{print $6" "$7}')
+  FILE_TS=$(date -d "$FILE_DATE" +%s)
+  if [ "$FILE_TS" -lt "$LIMIT" ]; then
+    GET_SERVER_JSON=true
+  fi
+fi
+
+if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
+ || [ "$GET_SERVER_JSON" == "true" ]; then
+
+  # Read NordVPN servers list (realtime data)
+  echo "[*] Retrieving recent server list..."
+  wget -q -T 10 -O $SERVERSJSONFILE $SERVERLISTURL
+  if [ -s $SERVERSJSONFILE ]; then
+
+    # Get filesize
+    SERVERSJSONFILESIZE=$(wc -c < "$SERVERSJSONFILE") 2>/dev/null
+    echo -e "\033[1;36m[>] Downloaded $SERVERSJSONFILESIZE bytes of server information\033[0m"
+
+    # Parse JSON and write servers to file
+    echo "[*] Parsing server loads..."
+    grep -o '"hostname"[^"]*"[^}]*"load"[^0-9]*[0-9][0-9]*' $SERVERSJSONFILE | \
+    sed 's/"hostname":"\([^".]*\)[^"]*","load":\([0-9][0-9]*\)/\1:\2/' > $SERVERLOADSFILE
+
+  fi
+
+fi
+
+PARSE_KEYS=false
+NOW=$(date +%s)
+LIMIT=$((NOW - 60*60*24))
+if [ ! -f "$SERVERKEYSFILE" ]; then
+  PARSE_KEYS=true
+else
+  FILE_DATE=$(ls --full-time -l "$SERVERKEYSFILE" | awk '{print $6" "$7}')
+  FILE_TS=$(date -d "$FILE_DATE" +%s)
+  if [ "$FILE_TS" -lt "$LIMIT" ]; then
+    PARSE_KEYS=true
+  fi
+fi
+
+if [ "$PARSE_KEYS" == "true" ]; then
+
+  # Parse public keys from JSON to file if keys file is older than 1 day
+  echo "[*] Parsing public keys..."
+  if [ -f "$SERVERKEYSFILE" ]; then
+    rm $SERVERKEYSFILE
+  fi
+
+  # Split JSON in chunks delimited by "station"
+  awk -v RS='"station"' 'NR > 1 { print }' "$SERVERSJSONFILE" | \
+  while IFS= read -r chunk; do
+    printf '%s\n' "$chunk" > /tmp/chunk
+    hostname=$(printf '%s\n' "$chunk" | grep -o '"hostname":"[^"]*"' | \
+    sed 's/.*"hostname":"\([^".]*\)[^"]*"/\1/')
+    public_key=$(grep -o 'public_key",\s*"value":"[^"]*' /tmp/chunk | \
+    sed -n 's/.*public_key","value":"\(.*\)/\1/p')
+    printf '%s\n' "$hostname:$public_key" >> $SERVERKEYSFILE
+  done
+  rm -f /tmp/chunk
+
+  # Create file with sorted server names
+  echo "[*] Sorting server list..."
+  sed 's/:.*//' $SERVERKEYSFILE | sort -u > $SERVERSLISTFILE
+fi

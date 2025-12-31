@@ -1,0 +1,181 @@
+##############################################################
+#                                                            #
+#  DO NOT, AND UNDER _NO CIRCUMSTANCES_ EVER EDIT THIS FILE  #
+#                                                            #
+#  Reason: this file will be overwritten within the next 24  #
+#          hours automatically - so CHANGES WILL GET LOST!!  #
+#                                                            #
+#  Instead, make a copy of this file:                        #
+#  cp master_config my_config                                #
+#  ... and edit the my_config file then                      #
+#  (remove everything above line #100)                       #
+#                                                            #
+##############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Your private NordVPN key
+CLIENTPRIVATEKEY="xXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXx="
+
+# WireGuard IP segment (usually 10.5.0.2/32)
+CLIENTADDRESS="10.5.0.2/32"
+
+# Highly recommended to leave "yes" to prevent IPv6 identity leaks
+DISABLEIPV6=yes
+
+# http-URLs (mind: NOT https-URLs!) to determine public IP address,
+# separated by comma
+IPADDRESSURLS=api.ipify.org,checkip.amazonaws.com,ip.tyk.nu,whatismyip.akamai.com,l2.io/ip,ident.me,wgetip.com,eth0.me,ifconfig.me/ip
+
+# Countries to ignore when connecting to a random exit node,
+# separated by comma (e.g. countries known for mass surveillance)
+IGNORECOUNTRIES=ae,af,at,ao,au,az,be,bi,bf,bh,bj,bn,by,ca,cd,cf,cg,ch,cm,cn,cu,de,dk,dj,dz,eg,er,es,et,fr,ga,ge,gq,gn,gu,hk,ht,hu,il,in,iq,ir,it,jp,kg,kh,km,kp,kr,kw,kz,la,ly,ma,md,ml,mm,mx,mz,ne,ni,nl,no,nz,om,pk,ps,qa,rs,ru,rw,sa,sd,se,sg,so,sv,sw,ss,sy,sz,td,th,tj,tm,tn,tr,tw,tz,ua,ug,uk,us,uz,ve,vn,ye,zw
+
+# Exclusive list of countries to connect to (don't connect to any
+# other countries than to these in this comma separated list)
+# syntax is like in IGNORECOUNTRIES
+# (overrules IGNORECOUNTRIES)
+EXCLUSIVECOUNTRIES=
+
+# use bridge servers (servers with a dash in the name, e.g. uk-fr12)
+BRIDGESERVERS=yes
+
+# use onion servers
+# (needs BRIDGESERVERS=yes to become effective)
+ONIONSERVERS=no
+
+# use socks servers
+# (needs BRIDGESERVERS=yes to become effective)
+SOCKSSERVERS=no
+
+# Check maximum server load before connecting
+CHECKLOAD=yes
+
+# Stay below this server load in percent
+# (needs CHECKLOAD=yes to become effective)
+MAXLOAD=50
+
+# Ping VPN server before connecting
+PINGSERVER=yes
+
+# Ping responses may not exceed this amount of milliseconds
+# (needs PINGSERVER=yes to become effective)
+MAXPONGTIME=300
+
+# Run a speed test after connection to the VPN server has established
+TESTSPEED=yes
+
+# Speed in MBit/s above which a speed test becomes unlikely with this router
+# (needs SPEEDTEST=yes to become effective)
+UNLIKELYSPEED=100
+
+# Minimum speed in Mbit/s you expect from the VPN connection
+# (needs SPEEDTEST=yes to become effective)
+MINIMUMSPEED=3
+
+# Determine and set best MTU for connection
+SETMTU=yes
+
+# wait for this amount of seconds after the
+# connection was established before setting the MTU
+# (needs SETMTU=yes to become effective)
+MTUWAIT=60
+
+# Maximum transmission unit to start testing with
+# (needs SETMTU=yes to become effective)
+MINMTU=1260
+
+# Maximum transmission unit to end testing with
+# (needs SETMTU=yes to become effective)
+MAXMTU=1500
+
+# Steps in which to run through MTUs to test for optimal value
+# (needs SETMTU=yes to become effective)
+MTUSTEP=10
+
+# Amount of pings used to test target for best MTU
+# (needs SETMTU=yes to become effective)
+MTUPINGCOUNT=10

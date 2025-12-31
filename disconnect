@@ -1,0 +1,100 @@
+#!/bin/ash
+
+COUNTRYNAMESFILE=/tmp/countries.json
+
+echo -e "\033[1;32m[*] WireGuard/VPN is being completely reset...\033[0m"
+
+# Get rid of killswitch first
+echo "[*] Removing killswitch..."
+nft list table inet killswitch >/dev/null 2>&1 && nft delete table inet killswitch
+
+# Stop WireGuard interface
+echo "[*] Stopping WireGuard interface..."
+ifdown wg0 >/dev/null
+
+# Delete UCI configurations
+echo "[*] Deleting UCI configurations..."
+uci -q delete network.wg0
+while uci -q delete network.@wireguard_wg0[0]; do :; done
+
+# Delete firewall zone 'vpnfirewall' and forwardings
+echo "[*] Deleting firewall zone and forwardings..."
+idx_zone=$(uci show firewall | grep "firewall.@zone\[.*\].name='vpnfirewall'" | cut -d'[' -f2 | cut -d']' -f1 | head -1)
+[ -n "$idx_zone" ] && uci delete firewall.@zone["$idx_zone"]
+while uci show firewall | grep -q "firewall.@forwarding\[.*\].dest='vpnfirewall'"; do
+    fidx=$(uci show firewall | grep "firewall.@forwarding\[.*\].dest='vpnfirewall'" | cut -d'[' -f2 | cut -d']' -f1 | head -1)
+    [ -n "$fidx" ] && uci delete firewall.@forwarding["$fidx"]
+done
+
+# Remove wg0 from WAN zone
+echo "[*] Removing wg0 from WAN zone..."
+uci del_list firewall.@zone[$(uci get firewall | grep -n "name='wan'" | cut -d: -f1 | head -1)].network='wg0' 2>/dev/null
+
+# Reset metrics
+echo "[*] Resetting metrics..."
+uci delete network.wg0.metric 2>/dev/null
+uci delete network.wan.metric 2>/dev/null
+uci delete network.wg0_route 2>/dev/null
+uci delete network.wg0_peers 2>/dev/null
+uci set network.wan.metric='10'
+
+# Commit changes
+echo "[*] Committing changes..."
+uci commit network
+uci commit firewall
+
+# Restart services
+echo "[*] Restarting services..."
+/etc/init.d/network restart
+/etc/init.d/firewall restart
+
+echo -e "\033[1;32m[*] Reset was successful.\033[0m"
+
+# Check if WireGuard connection has been successfully dropped
+echo "[*] Checking connection..."
+LAST_HANDSHAKE=""
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  LAST_HANDSHAKE=$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
+  if [ -z "$LAST_HANDSHAKE" ] || [ "$LAST_HANDSHAKE" -eq 0 ] 2>/dev/null; then
+    echo -e "\033[1;32m[*] VPN connection is down\033[0m"
+    break
+  fi
+  sleep 1
+done
+if [ "$LAST_HANDSHAKE" != "" ]; then
+  echo -e "\033[1;31m[*] ERROR: we are still connected to the VPN\033[0m"
+fi
+
+sleep 10
+
+# Update TLD list
+echo "[*] Updating countries list..."
+GET_COUNTRIES=false
+NOW=$(date +%s)
+LIMIT=$((NOW - 60*60*24*30))
+if [ ! -f "$COUNTRYNAMESFILE" ]; then
+  GET_COUNTRIES=true
+else
+  FILE_DATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')
+  FILE_TS=$(date -d "$FILE_DATE" +%s)
+  if [ "$FILE_TS" -lt "$LIMIT" ]; then
+    GET_COUNTRIES=true
+  fi
+fi
+
+if [ "$GET_COUNTRIES" == "true" ]; then
+  wget -q -T 10 -O $COUNTRYNAMESFILE https://country.io/names.json
+fi
+
+# Output VPN server information
+echo "[*] Getting IP information..."
+IP_ADDRESS=`wget -T 10 -q -O - https://api.ipify.org/`
+COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country`
+REGION=`wget -T 10 -q -O - https://ipinfo.io/region`
+CITY=`wget -T 10 -q -O - https://ipinfo.io/city`
+
+COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+
+echo -e "\033[1;36m[>] Your external IP address: $IP_ADDRESS\033[0m"
+echo -e "\033[1;36m[>] Location: $CITY, $REGION, $COUNTRYNAME\033[0m"

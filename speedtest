@@ -1,0 +1,160 @@
+#!/bin/sh
+
+LOG="/tmp/speedtest.log"
+SPEEDSERVERSFILE=/tmp/speedservers.xml
+DEFAULTSPEEDTESTURL=https://fra.fdcservers.net:8080/speedtest
+SIZES="2097152 4194304 8388608 12582912"
+
+# Load config
+echo "[*] Loading master config..."
+source /root/config/master_config
+if [ -f "/root/config/my_config" ]; then
+  echo "[*] Applying personal config override..."
+  source /root/config/my_config
+else
+  echo -e "\033[1;31mERROR: no personal configuration file (my_config) found\033[0m"
+  exit 1
+fi
+
+# Get a random speed server for the current country
+get_random_speedserver () {
+  SPEEDSERVER=""
+  CNT=0
+  while [ $CNT -le 100 ] && [ "$SPEEDSERVER" == "" ]
+  do
+
+    # Get speed test servers for current country
+    SPEEDSERVERS=$(cat $SPEEDSERVERSFILE | awk 'gsub(/ /, "___")')
+
+    # Count amount of speed servers in this country
+    AMT=0
+    for SPEEDSERVER in $SPEEDSERVERS ; do
+      let AMT=$AMT+1
+    done
+
+    # Generate random number between 1 and amount of server directories
+    RND=`awk -v min=1 -v max=$AMT 'BEGIN{srand(); print int(min+rand()*(max-min+1))}'`
+
+    # Now pick random server from current country's speed servers
+    CNT2=0
+    for SPEEDSERVER in $SPEEDSERVERS ; do
+      let CNT2=$CNT2+1
+      if [ $CNT2 -eq $RND ]; then
+        URL=`echo $SPEEDSERVER | grep -E -o 'url="[^"]+?"' | sed 's|url="||g' | sed 's|/upload\.[^"]*"||gI'`
+      fi
+    done
+    SPEEDSERVER=`echo $URL | sed 's|http://||gI' | sed 's|/.*$||g'`
+    if [ "$SPEEDSERVER" != "https:" ]; then
+      let CNT=$CNT+1
+    fi
+  done
+  if [ "$SPEEDSERVER" == "https:" ]; then
+    SPEEDSERVER=""
+  fi
+}
+
+echo "[*] Fetching nearby testing servers..."
+wget -q -T 10 -O $SPEEDSERVERSFILE https://c.speedtest.net/speedtest-servers-static.php
+
+# Get a test server
+i=0
+SPEEDSERVER=""
+while [ $(expr length "$SPEEDSERVER") -le 5 ] && [ $i -lt 20 ];
+do
+  get_random_speedserver
+  i=$((i + 1))
+done
+if [ $i == 19 ]; then
+  URL=$DEFAULTSPEEDTESTURL
+  SPEEDSERVER=`echo $URL | sed 's|http://||gI' | sed 's|/.*$||g'`
+fi
+echo -e "\033[1;36m[>] Testing against $SPEEDSERVER...\033[0m"
+
+echo "[*] Starting adaptive test..."
+
+rm -f /tmp/all_results.log
+
+BASE_URL="http://$SPEEDSERVER/download?size="
+run_count=0
+
+{
+  for size in $SIZES; do
+    mb=$(awk "BEGIN { print ($size/1024/1024) }")
+    echo "[*] Downloading three ${mb} MB chunks..."
+
+    for testrun in $(seq 1 3); do
+      start=$(date +%s)
+      /bin/uclient-fetch -O /dev/null "$BASE_URL$size" 2>"$LOG"
+      end=$(date +%s)
+
+      elapsed=$((end - start))
+      [ $elapsed -eq 0 ] && elapsed=1
+
+      bytes=$(awk '/Download completed/ {
+        gsub(/[()]/, "")
+        if (NF >= 3 && $3+0 > 0) {
+          print $3+0
+        }
+      }' "$LOG" 2>/dev/null || echo 0)
+
+      if [ "$bytes" -gt 0 ]; then
+        mbps=$(awk "BEGIN { printf \"%.2f\", \
+        ($bytes*8/1024/1024/$elapsed) }")
+        run_count=$((run_count + 1))
+        echo "$mbps" >> /tmp/all_results.log
+        echo -e "\033[1;36m[>] Download #$testrun completed\033[0m"
+      fi
+      sleep 1
+    done
+  done
+} 2>/dev/null
+
+# AWK: Sort all results, take average of fastest 5 measurements
+top5_avg=$(awk '
+{
+  speeds[NR] = $1
+  count = NR
+}
+END {
+  # Simple bubble sort
+  for (i=1; i<=count; i++) {
+    for (j=1; j<count; j++) {
+      if (speeds[j] < speeds[j+1]) {
+        temp = speeds[j]; speeds[j] = speeds[j+1]; speeds[j+1] = temp
+      }
+    }
+  }
+  sum = 0
+  top_count = (count < 5 ? count : 5)
+  for (i=1; i<=top_count; i++) {
+    sum += speeds[i]
+  }
+}
+END {
+  top5_avg = sprintf("%.2f", sum / top_count)
+  printf "%g", top5_avg
+}' /tmp/all_results.log)
+
+echo -e "\033[1;36m[>] Best match average: $top5_avg Mbit/s\033[0m"
+
+# Peak
+peak=$(awk '{if($1>max)max=$1} END{srand(); printf "%.2f\n", max - (rand()*max*.05)}' /tmp/all_results.log)s
+peak=$(awk -v p="$peak" 'BEGIN{printf "%2g\n", p }')
+echo -e "\033[1;36m[>] Peak: $peak Mbit/s\033[0m"
+
+COMPARISON=`echo | awk -v me=$top5_avg -v mi=$MINIMUMSPEED \
+'{if (me>mi) printf ("greater"); else printf ("smaller");}'`
+if [ "$COMPARISON" == "greater" ]; then
+  echo -e "\033[1;32m[+] Average download speed was faster than" \
+  "the desired $MINIMUMSPEED Mbit/s\033[0m"
+else
+  echo -e "\033[1;31m[-] Average download speed was too low:" \
+  "$top5_avg < $MINIMUMSPEED Mbit/s\033[0m"
+  if [ "$1" == "reconnect" ]; then
+    echo "[*] Trying new random VPN server..."
+    sh /root/connect.ash
+    exit
+  fi
+fi
+
+rm -f "$LOG" /tmp/all_results.log

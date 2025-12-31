@@ -1,0 +1,125 @@
+#!/bin/ash
+
+# Accept parameters
+IFACE="$1"
+MTUTARGET="$2"
+if [ -z "$IFACE" ] || [ -z "$MTUTARGET" ]; then
+  echo "Usage: $0 <interface> <target_host>"
+  exit 1
+fi
+
+# Load config
+echo "[*] Loading master config..."
+source /root/config/master_config
+if [ -f "/root/config/my_config" ]; then
+  echo "[*] Applying personal config override..."
+  source /root/config/my_config
+else
+  echo -e "\033[1;31m[!] ERROR: no personal configuration file (my_config) found\033[0m"
+  exit
+fi
+
+echo -e "\033[1;36m[>] Interface   : $IFACE\033[0m"
+echo -e "\033[1;36m[>] Target host : $MTUTARGET\033[0m"
+echo -e "\033[1;36m[>] Minimum MTU : $MINMTU\033[0m"
+echo -e "\033[1;36m[>] Maximum MTU : $MAXMTU\033[0m"
+echo -e "\033[1;36m[>] Step size   : $MTUSTEP\033[0m"
+
+BESTMTU=0
+BESTAVGMS=0
+
+MTU="$MINMTU"
+while [ "$MTU" -le "$MAXMTU" ]; do
+  echo "[*] Testing MTU $MTU..."
+  OUT="$(ping -c "$MTUPINGCOUNT" -s "$MTU" "$MTUTARGET" 2>/dev/null)"
+  RC=$?
+
+  if [ "$RC" -ne 0 ]; then
+    echo -e "\033[1;31m[!] Ping failed (RC=$RC)\033[0m"
+    MTU=$((MTU + MTUSTEP))
+    continue
+  fi
+
+  # Fetch ping result stats
+  STATSLINE=$(echo "$OUT" | grep 'transmitted')
+  RTTLINE=$(echo "$OUT" | grep 'rtt \|round-trip ')
+
+  if [ -z "$STATSLINE" ] || [ -z "$RTTLINE" ]; then
+    echo -e "\033[1;31m[!] Couldn't receive a usable ping result\033[0m"
+    MTU=$((MTU + MTUSTEP))
+    continue
+  fi
+
+  # Extract sent/received
+  SENT=$(echo "$STATSLINE"   | awk '{print $1}')
+  RECV=$(echo "$STATSLINE"   | awk '{print $4}')
+
+  # Measure success rate
+  if [ "$SENT" -eq 0 ] || [ "$RECV" -eq 0 ]; then
+    echo -e "\033[1;31m[!] No successful pings\033[0m"
+    MTU=$((MTU + MTUSTEP))
+    continue
+  fi
+
+  # Get average value from RTT line
+  AVGMS=$(echo "$RTTLINE" | awk -F'=' '{print $2}' | awk '{print $1}' | awk -F'/' '{print $2}')
+
+  if [ -z "$AVGMS" ]; then
+    echo -e "\033[1;31m[!] Couldn't parse average value\033[0m"
+    MTU=$((MTU + MTUSTEP))
+    continue
+  fi
+
+  echo -e "\033[1;36m[>] $RECV/$SENT packets, averagely ${AVGMS} ms\033[0m"
+
+  # Only view MTUs with 100% success rate
+  if [ "$RECV" -eq "$SENT" ]; then
+    if [ "$BESTMTU" -eq 0 ]; then
+      BESTMTU="$MTU"
+      BESTAVGMS="$AVGMS"
+    else
+
+      # Numeric comparison
+      BETTER=$(awk -v a="$AVGMS" -v b="$BESTAVGMS" 'BEGIN {if (a < b) print 1; else print 0}')
+      if [ "$BETTER" -eq 1 ]; then
+        BESTMTU="$MTU"
+        BESTAVGMS="$AVGMS"
+      fi
+    fi
+  fi
+
+  MTU=$((MTU + MTUSTEP))
+done
+
+if [ "$BESTMTU" -eq 0 ]; then
+  echo -e "\033[1;31m[!] Couldn't find an MTU with 100% success within $MINMTU..$MAXMTU\033[0m"
+  exit 1
+fi
+
+echo -e "\033[1;36m[>] Best found MTU (100% success, smallest average):\033[0m"
+echo -e "\033[1;36m[>] $BESTMTU (avgerage ${BESTAVGMS} ms)\033[0m"
+
+ip link set dev $IFACE mtu "$BESTMTU" >/dev/null 2>&1
+RC=$?
+if [ "$RC" -ne 0 ]; then
+  ifconfig $IFACE mtu "$BESTMTU" >/dev/null 2>&1
+  RC=$?
+  if [ "$RC" -ne 0 ]; then
+    echo -e "\033[1;31m[!] Error setting new MTU $BESTMTU on $IFACE\033[0m"
+    exit 1
+  fi
+fi
+echo -e "\033[1;32m[+] Successfully set MTU on $IFACE to $BESTMTU\033[0m"
+
+# Save MTU for future connections
+uci set network."$IFACE".mtu='$BESTMTU'
+uci commit network
+/etc/init.d/network reload
+echo -e "\033[1;32m[+] Made MTU boot persistent\033[0m"
+
+echo "[*] Testing connection with new MTU..."
+if ping -c 3 -W 1 $PINGDFOPTS -s "$BESTMTU" "$MTUTARGET" >/dev/null 2>&1; then
+  echo -e "\033[1;32m[+] Connection was successful\033[0m"
+else
+  echo -e "\033[1;31m[!] ERROR: Connection with new MTU $BESTMTU failed\033[0m"
+fi

@@ -1,0 +1,416 @@
+#!/bin/ash
+
+COUNTRYNAMESFILE=/tmp/countries.json
+SERVERLOADSFILE=/tmp/servers.loads
+SERVERSLISTFILE=/tmp/servers.list
+SERVERKEYSFILE=/tmp/servers.keys
+CURRENTSERVERFILE=/tmp/currentserver
+CLEANSERVERSLISTFILE=/tmp/servers.clean
+
+# Read a file with lines split by ":" into an array
+load_kv() {
+  prefix="$1"
+  file="$2"
+  i=0
+  while IFS=: read -r key value; do
+    eval "${prefix}_keys_$i=\"\$key\""
+    eval "${prefix}_vals_$i=\"\$value\""
+    i=$((i + 1))
+  done < "$file"
+  eval "${prefix}_count=$i"
+}
+
+# Get a value by key from an array
+get_value() {
+  prefix="$1"
+  search="$2"
+  eval "count=\$${prefix}_count"
+  idx=0
+  while [ $idx -lt $count ]; do
+    eval "k=\$${prefix}_keys_$idx"
+    eval "v=\$${prefix}_vals_$idx"
+    if [ "$k" = "$search" ]; then
+      echo "$v"
+      return
+    fi
+    idx=$((idx + 1))
+  done
+}
+
+# Output server information
+server_info() {
+  echo "[*] Getting geolocation information..."
+  IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/ 2>/dev/null`
+  COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
+  REGION=`wget -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
+  CITY=`wget -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
+
+  if [ "$IPADDRESS" == "" ]; then
+    echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
+    echo "[*] Reinvoking VPN connection script..."
+    removeserver
+    sh "$0" "$1"
+    exit
+  fi
+
+  COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+  grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+
+  echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
+
+  # Check if server is located in IGNORECOUNTRIES
+  LOWERCOUNTRY=$(printf '%s\n' "$COUNTRY" | tr 'A-Z' 'a-z')
+  if echo ",$LOWERIGNORECOUNTRIES," | grep -q ",$LOWERCOUNTRY,"; then
+    echo -e "\033[1;31m[!] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"
+    echo -e "\033[1;31m[!] The endpoint country of $SERVER is excluded by configuration\033[0m"
+    ifdown wg0
+    echo -e "\033[1;32m[+] Dropped VPN connection\033[0m"
+    echo "[*] Reinvoking VPN connection script..."
+    removeserver
+    sh "$0" "$1"
+    exit
+  fi
+  echo -e "\033[1;36m[>] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"
+}
+
+# Remove server from servers list
+removeserver() {
+  echo "[*] Removing server from the list..."
+  grep -v -F "$SERVER" "$SERVERSLISTFILE" > \
+  "$CLEANSERVERSLISTFILE" && mv "$CLEANSERVERSLISTFILE" "$SERVERSLISTFILE"
+}
+
+# Load config
+echo "[*] Loading master config..."
+source /root/config/master_config
+if [ -f "/root/config/my_config" ]; then
+  echo "[*] Applying personal config override..."
+  source /root/config/my_config
+else
+  echo -e "\033[1;31m[!] ERROR: no personal configuration file (my_config) found\033[0m"
+  exit
+fi
+
+# Update TLD list
+echo "[*] Updating countries list..."
+GET_COUNTRIES=false
+NOW=$(date +%s)
+LIMIT=$((NOW - 60*60*24*30))
+if [ ! -f "$COUNTRYNAMESFILE" ]; then
+  GET_COUNTRIES=true
+else
+  FILE_DATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')
+  FILE_TS=$(date -d "$FILE_DATE" +%s)
+  if [ "$FILE_TS" -lt "$LIMIT" ]; then
+    GET_COUNTRIES=true
+  fi
+fi
+
+if [ "$GET_COUNTRIES" == "true" ]; then
+  wget -q -T 10 -O $COUNTRYNAMESFILE https://country.io/names.json
+fi
+LOWERIGNORECOUNTRIES=$(printf '%s\n' "$IGNORECOUNTRIES" | tr 'a-Z' 'A-Z')
+
+# Install WireGuard (if not done yet)
+sh $(dirname "$0")/install_wireguard
+
+# Retrieve servers
+sh $(dirname "$0")/get_servers
+
+# read public keys and server loads into arrays
+load_kv pubkeys $SERVERKEYSFILE
+load_kv loads $SERVERLOADSFILE
+
+# Pick a random server
+AMOUNTSERVERS=$(wc -l < "$SERVERSLISTFILE")
+echo -e "\033[1;36m[>] Currently there are $AMOUNTSERVERS" \
+"total servers available\033[0m"
+echo "[*] Filtering server list according to configuration..."
+i=0
+ANOTHER=
+FILTERINFO=true
+while [ "$i" -le 100 ]; do
+
+  i=$((i + 1))
+  if [ "$i" -gt 99 ]; then
+    echo -e "\033[1;31m[!] ERROR: Couldn't select a server" \
+    "Try lowering your restrictions in the configuration\033[0m"
+    exit 1
+  fi
+
+  # Get a random server
+  echo "[*] Searching for$ANOTHER server in the haystack..."
+  ANOTHER=" another"
+  SERVERPUBLICKEY=""
+  RESULT=$(sh $(dirname "$0")/get_random_server $1)
+  IFS=, read -r -d '' SERVER FILTEREDCOUNTRIES \
+  FILTEREDSERVERS < <(printf %s $RESULT)
+  if [ "$SERVER" == "" ]; then
+    echo -e "\033[1;31m[!] ERROR: No servers found for country '$1'\033[0m"
+    continue
+  fi
+
+  # Output information about server filters
+  if [ "$FILTERINFO" == "true" ]; then
+    echo -e "\033[1;36m[>] There remain $FILTEREDCOUNTRIES countries and" \
+    "$FILTEREDSERVERS servers after applying your configuration\033[0m"
+    FILTERINFO=false
+  fi
+
+  # Extract country from server name
+  COUNTRY=$(echo "$SERVER" | grep -o '[a-zA-Z]*[0-9]' | grep -o '[a-zA-Z]*' | tail -1)
+  COUNTRY=$(printf '%s\n' "$COUNTRY" | tr 'a-z' 'A-Z')
+
+  # Check if server is located in IGNORECOUNTRIES
+  COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+  grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+  echo -e "\033[1;36m[>] Potential server candidate #$i:" \
+  "$SERVER ($COUNTRYNAME)\033[0m"
+  SERVERHOST="$SERVER.nordvpn.com"
+  echo "[*] Fetching ip address for $SERVERHOST..."
+  SERVERIP=$(nslookup "$SERVERHOST" 2>/dev/null | \
+  awk '/^Address: /{print $2; exit}')
+  if [ "$SERVERIP" != "" ]; then
+    echo "[*] Looking up geolocation of $SERVERHOST..."
+    COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/$SERVERIP/country 2>/dev/null`
+    if [ "$COUNTRY" != "" ]; then
+      LOWERCOUNTRY=$(printf '%s\n' "$COUNTRY" | tr 'A-Z' 'a-z')
+      if echo ",$LOWERIGNORECOUNTRIES," | grep -q ",$LOWERCOUNTRY,"; then
+        COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+        grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+        REGION=`wget -T 10 -q -O - https://ipinfo.io/$SERVERIP/region 2>/dev/null`
+        CITY=`wget -T 10 -q -O - https://ipinfo.io/$SERVERIP/city 2>/dev/null`
+        echo -e "\033[1;31m[!] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"
+        echo -e "\033[1;31m[!] The real location of this server" \
+        "is excluded by configuration\033[0m"
+        removeserver
+        continue
+      else
+        echo -e "\033[1;32m[+] Server location looks good\033[0m"
+      fi
+    fi
+  fi
+
+  SERVERPUBLICKEY=$(get_value pubkeys $SERVER)
+  if [ "$SERVERPUBLICKEY" == "" ]; then
+    echo -e "\033[1;31m[!] ERROR: No public key found for server '$SERVER'\033[0m"
+    removeserver
+    continue
+  fi
+
+  # Check server load
+  if [ "$CHECKLOAD" == "yes" ]; then
+    echo "[*] Checking server load..."
+    SERVERLOAD=$(get_value loads $SERVER)
+    if [ "$SERVERLOAD" -gt "$MAXLOAD" ]; then
+      echo -en "\033[0;33m[!] Server load is higher than configuration allows: "
+      echo -e "$SERVERLOAD > $MAXLOAD\033[0m"
+      removeserver
+      continue
+    fi
+    echo -e "\033[1;32m[+] Server load is okay: $SERVERLOAD <= $MAXLOAD\033[0m"
+  fi
+
+  # Ping server
+  if [ "$PINGSERVER" == "yes" ]; then
+    echo "[*] Pinging server..."
+    OUT="$(ping -c 3 $SERVERHOST 2>/dev/null)"
+    RC=$?
+    if [ "$RC" -ne 0 ]; then
+      echo -e "\033[0;33m[!] Ping failed (received no pong)\033[0m"
+      removeserver
+      continue
+    fi
+    RTT_LINE=$(echo "$OUT" | grep 'rtt \|round-trip ')
+    if [ -z "$RTT_LINE" ]; then
+      echo -e "\033[0;33m[!] Couldn't receive a usable ping result\033[0m"
+      removeserver
+      continue
+    fi
+    AVGMS=$(echo "$RTT_LINE" | awk -F'=' '{print $2}' | \
+    awk '{print $1}' | awk -F'/' '{print $2}')
+    if [ -z "$AVGMS" ]; then
+      echo -e "\033[0;33m[!] Couldn't parse average ping value\033[0m"
+      removeserver
+      continue
+    fi
+    COMPARISON=$(awk -v am=$AVGMS -v mp=$MAXPONGTIME \
+    'BEGIN { print (am <= mp) ? "OK" : "Not OK" }')
+    AVGMS=$(printf "%.*f\n" "0" "$AVGMS")
+    if [ "$COMPARISON" == "OK" ]; then
+      echo -e "\033[1;32m[+] Pong is okay:" \
+      "$AVGMS <= $MAXPONGTIME ms\033[0m"
+      break
+    else
+      echo -e "\033[0;33m[!] Pong is not okay:" \
+      "$AVGMS > $MAXPONGTIME ms\033[0m"
+      removeserver
+      continue
+    fi
+  fi
+
+  # if we came till here without break or continue, we're good ;-)
+  break
+done
+echo -e "\033[1;36m[>] VPN server will be $SERVERHOST\033[0m"
+echo -e "\033[1;36m[>] The server's public key is $SERVERPUBLICKEY\033[0m"
+echo "$SERVERHOST" > $CURRENTSERVERFILE
+
+# Disable Iv6
+if [ "$DISABLEIPV6" == "yes" ]; then
+  echo "[*] Disabling IPv6 to prevent identity leaks..."
+  sh $(dirname "$0")/disable_ipv6
+fi
+
+echo "[*] Installing NordVPN WireGuard configuration..."
+
+# Remove old WG0 network configuration (if already existent)
+uci -q delete network.wg0
+
+# Remove all old WG0 peers
+while uci -q delete network.@wireguard_wg0[0]; do :; done
+
+# Create new WG0 WireGuard interface
+uci set network.wg0='interface'
+uci set network.wg0.proto='wireguard'
+uci set network.wg0.private_key="$CLIENTPRIVATEKEY"
+uci set network.wg0.listen_port='51820'
+uci add_list network.wg0.addresses="$CLIENTADDRESS"
+
+# Create NordVPN server peers
+uci set network.wg0_peer='wireguard_wg0'
+uci set network.wg0_peer.public_key="$SERVERPUBLICKEY"
+uci set network.wg0_peer.endpoint_host="$SERVERHOST"
+uci set network.wg0_peer.endpoint_port='51820'
+uci set network.wg0_peer.persistent_keepalive='25'
+
+# Route entire IPv4 traffic through VPN
+uci add_list network.wg0_peer.allowed_ips='0.0.0.0/0'
+uci add_list network.wg0_peer.allowed_ips='::/0'
+uci commit network
+
+echo -e "\033[1;32m[+] Network configuration has been written\033[0m"
+
+# Remove old firewall VPN zone
+echo "[*] Removing old firewall VPN zones..."
+idx_zone=$(uci show firewall | grep "firewall.@zone\[" | \
+grep "name='vpnfirewall'" | sed 's/.*zone\[//;s/\].*//')
+if [ -n "$idx_zone" ]; then
+  echo -e "\033[1;32m[+] Old vpnfirewall zone has been removed (index $idx_zone)\033[0m"
+  uci delete firewall.@zone["$idx_zone"]
+fi
+
+# Remove old forwardings
+echo "[*] Removing old forwardings..."
+while uci show firewall | grep -q "firewall.@forwarding\[.*\].*'vpnfirewall'"; do
+  fidx=$(uci show firewall | grep "firewall.@forwarding\[" | \
+  grep "dest='vpnfirewall'" | sed 's/.*forwarding\[//;s/\].*//' | head -n1)
+  [ -n "$fidx" ] && uci delete firewall.@forwarding["$fidx"]
+done
+
+# Add new VPN zone
+echo "[*] Adding new VPN zone..."
+uci add firewall zone >/dev/null
+uci set firewall.@zone[-1].name='vpnfirewall'
+uci set firewall.@zone[-1].input='REJECT'
+uci set firewall.@zone[-1].output='ACCEPT'
+uci set firewall.@zone[-1].forward='REJECT'
+uci set firewall.@zone[-1].masq='1'
+uci set firewall.@zone[-1].mtu_fix='1'
+uci add_list firewall.@zone[-1].network='wg0'
+
+# Allow forwarding from LAN to VPN
+echo "[*] Allowing forwarding from LAN to VPN..."
+uci add firewall forwarding >/dev/null
+uci set firewall.@forwarding[-1].src='lan'
+uci set firewall.@forwarding[-1].dest='vpnfirewall'
+
+echo -e "\033[1;32m[+] Firewall zone 'vpnfirewall' and forwarding of 'lan' has been configured\033[0m"
+
+# Wait for wg0
+echo "[*] Waiting for virtual device wg0 to come up..."
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if ip link show wg0 2>/dev/null | grep -q "state UP"; then
+    break
+  fi
+  sleep 1
+done
+
+# Add default route
+echo "[*] Adding default route..."
+ip route replace default dev wg0 table main
+uci set network.wg0.metric='5'
+uci set network.wan.metric='30'
+
+# Policy routing for wg0 (Fallback)
+echo "[*] Adding policy routing..."
+uci -q delete network.wg0_route
+uci set network.wg0_route='route'
+uci set network.wg0_route.interface='wg0'
+uci set network.wg0_route.target='0.0.0.0'
+uci set network.wg0_route.netmask='0'
+
+# Set initial MTU to 1280
+echo "[*] Setting an initial MTU of 1280..."
+uci set network.wg0.mtu='1280'
+
+# Commit changes
+echo "[*] Committing changes..."
+uci commit network
+uci commit firewall
+
+# Add killswitch
+sh $(dirname "$0")/killswitch
+
+# Restart services
+echo "[*] Restarting services..."
+/etc/init.d/network restart
+/etc/init.d/firewall restart
+
+# Check if WireGuard connection has been successful
+echo "[*] Establishing connection..."
+LAST_HANDSHAKE=""
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  LAST_HANDSHAKE=$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
+  if [ ! -z "$LAST_HANDSHAKE" ] && [ ! "$LAST_HANDSHAKE" -eq 0 ] 2>/dev/null; then
+    echo -e "\033[1;32m[+] VPN connection is up\033[0m"
+    break
+  fi
+  sleep 1
+done
+if [ "$LAST_HANDSHAKE" == "" ]; then
+  echo -e "\033[1;31m[!] ERROR: we are not connected to the VPN\033[0m"
+  echo "[*] Reinvoking VPN connection script..."
+  removeserver
+  sh "$0" "$1"
+  exit
+fi
+
+# Run speed test
+if [ "$TESTSPEED" == "yes" ]; then
+  server_info
+  sh $(dirname "$0")/speedtest | while IFS= read -r line; do
+    echo "$line"
+    if echo "$line" | grep -q "Average download speed was too low"; then
+      echo "[*] Reinvoking VPN connection script..."
+      removeserver
+      sh "$0" "$1"
+      exit
+    fi
+  done
+fi
+
+# Find best MTU and set it
+if [ "$SETMTU" == "yes" ]; then
+  if [ "$MTUWAIT" != "" ] && [ "$MTUWAIT" -gt 0 ]; then
+    echo -e "\033[1;36m[>] Waiting     : $MTUWAIT s\033[0m"
+    echo "[*] Having a nap for $MTUWAIT seconds"\
+    "before starting the MTU test..."
+    sleep $MTUWAIT
+  fi
+  sh $(dirname "$0")/auto_set_mtu wg0 $SERVERHOST
+fi
+
+# Last output of server information
+echo -e "\033[1;32m[+] Your server is $SERVERHOST ($IPADDRESS)\033[0m"
+echo -e "\033[1;32m[+] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"

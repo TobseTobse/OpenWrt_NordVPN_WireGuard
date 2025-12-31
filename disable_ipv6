@@ -1,0 +1,35 @@
+#!/bin/ash
+
+# Remove ULA prefix (local IPv6 prefixes)
+echo "[*] Removing ULA prefix..."
+uci -q delete network.globals.ula_prefix
+
+# No DHCPv6/RA anymore in LAN (no IPv6 addresses to clients)
+echo "[*] Preventing DHCPv6/RA in LAN..."
+uci -q delete dhcp.lan.ra
+uci set 'dhcp.lan.dhcpv6=disabled'
+
+# Deactivate IPv6 on LAN and WAN
+echo "[*] Deactivating IPv6 in both LAN and WAN..."
+uci set 'network.lan.ipv6=0'
+uci set 'network.wan.ipv6=0'
+
+# Deactivate delegation of IPv6 in LAN
+echo "[*] Deactivating IPv6 delegation in LAN..."
+uci set network.lan.delegate='0'
+
+# Stop and deactivate odhcpd (IPv6-DHCP/RA)
+OPENWRT_VERSION=$(awk -F\' '/DISTRIB_RELEASE/{print $2}' /etc/openwrt_release)
+MAJOR_MINOR=$(echo "$OPENWRT_VERSION" | cut -d. -f1-2)
+if awk "BEGIN {exit !($MAJOR_MINOR < 22.03)}"; then
+	echo "[*] Stopping and deactivating odhcpd..."
+	/etc/init.d/odhcpd stop
+	/etc/init.d/odhcpd disable
+fi
+
+# Save changes and restart network
+echo "[*] Saving changes..."
+uci commit network
+uci commit dhcp
+echo "[*] Restarting network..."
+/etc/init.d/network restart
