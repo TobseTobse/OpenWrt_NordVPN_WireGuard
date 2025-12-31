@@ -53,9 +53,8 @@ source $SCRIPTDIR/config/master_config
 if [ ! -f "$SCRIPTDIR/config/my_config" ]; then
 	printf "Please enter your NordVPN private key: "
 	read PRIVATEKEY
-	cp "$SCRIPTDIR/config/master_config" \
-	"$SCRIPTDIR/config/my_config" || exit 1
+	awk 'BEGIN{RS=""; ORS="\n\n"} NR>1' \
+	"$SCRIPTDIR/config/master_config" > "$SCRIPTDIR/config/my_config"
 	sed -i "s/^CLIENTPRIVATEKEY=.*/CLIENTPRIVATEKEY=\"$PRIVATEKEY\"/" \
 	"$SCRIPTDIR/config/my_config"
 fi
-
