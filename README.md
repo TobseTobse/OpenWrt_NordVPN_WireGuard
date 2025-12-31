@@ -56,6 +56,8 @@ Once you have your key, copy it and save it somewhere. We will need it later.
 
 Now install OpenWrt on your router.
 
+### Get the scripts on your router
+
 If you are on Windows you will need a tool like [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest) to connect to your router via SSH. If you are on Linux, just open a terminal and type:
 
 `ssh root@192.168.1.1`
@@ -72,7 +74,7 @@ chmod +x update
 ./update
 ```
 
-This should download all the scripts in this project. Then install Wireguard with this:
+This should download all the scripts in this project directly from GitHub. Then install Wireguard with this:
 
 ```./install_wireguard```
 
