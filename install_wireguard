@@ -50,7 +50,7 @@ fi
 source $SCRIPTDIR/config/master_config
 
 # ask user for private key if not done yet
-if [ -f "$SCRIPTDIR/config/my_config" ]; then
+if [ ! -f "$SCRIPTDIR/config/my_config" ]; then
 	printf "Please enter your NordVPN private key: "
 	read PRIVATEKEY
 	cp "$SCRIPTDIR/config/master_config" \
