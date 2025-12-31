@@ -17,7 +17,7 @@ update_file() {
   FILENAME=$1
   echo "[*] Downloading $FILENAME script..."
   wget -q -T 10 -O /tmp/${FILENAME}.update $GITHUBURL/${FILENAME}
-  SIZE=$(ls -ln -- "$FILE" | awk '{print $5}')
+  SIZE=$(ls -ln -- "/tmp/${FILENAME}.update" | awk '{print $5}')
   if [ "$SIZE" -gt 900 ]; then
     echo "[*] Replacing file..."
     mv /tmp/${FILENAME}.update $SCRIPTDIR/${FILENAME}
