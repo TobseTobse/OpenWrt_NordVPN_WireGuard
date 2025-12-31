@@ -1,11 +1,12 @@
 #!/bin/ash
 
+SCRIPTDIR=$( cd "$( dirname "$0" )" && pwd )
 SERVERSLISTFILE=/tmp/servers.list
 
 # Load config
-source /root/config/master_config
-if [ -f "/root/config/my_config" ]; then
-  source /root/config/my_config
+source $SCRIPTDIR/config/master_config
+if [ -f "$SCRIPTDIR/config/my_config" ]; then
+  source $SCRIPTDIR/config/my_config
 fi
 
 # Group servers by country, randomly pick a country, then a server

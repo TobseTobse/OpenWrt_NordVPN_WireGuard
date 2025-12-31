@@ -1,5 +1,6 @@
 #!/bin/sh
 
+SCRIPTDIR=$( cd "$( dirname "$0" )" && pwd )
 LOG="/tmp/speedtest.log"
 SPEEDSERVERSFILE=/tmp/speedservers.xml
 DEFAULTSPEEDTESTURL=https://fra.fdcservers.net:8080/speedtest
@@ -7,10 +8,10 @@ SIZES="2097152 4194304 8388608 12582912"
 
 # Load config
 echo "[*] Loading master config..."
-source /root/config/master_config
-if [ -f "/root/config/my_config" ]; then
+source $SCRIPTDIR/config/master_config
+if [ -f "$SCRIPTDIR/config/my_config" ]; then
   echo "[*] Applying personal config override..."
-  source /root/config/my_config
+  source $SCRIPTDIR/config/my_config
 else
   echo -e "\033[1;31mERROR: no personal configuration file (my_config) found\033[0m"
   exit 1
@@ -152,7 +153,7 @@ else
   "$TOP5AVG < $MINIMUMSPEED Mbit/s\033[0m"
   if [ "$1" == "reconnect" ]; then
     echo "[*] Trying new random VPN server..."
-    sh /root/connect.ash
+    sh $SCRIPTDIR/connect
     exit
   fi
 fi

@@ -39,8 +39,23 @@ for package in $PACKAGES; do
 	fi
 done
 
+# generate new connection key pair
 if [ ! -f "/etc/wireguard/privatekey" ] || [ ! -f "/etc/wireguard/publickey" ]; then
 	echo "[*] Generating WireGuard key pair..."
 	wg genkey > /etc/wireguard/privatekey 2>/dev/null
 	wg pubkey < /etc/wireguard/privatekey > /etc/wireguard/publickey 2>/dev/null
 fi
+
+# Load master config
+source $SCRIPTDIR/config/master_config
+
+# ask user for private key if not done yet
+if [ -f "$SCRIPTDIR/config/my_config" ]; then
+	printf "Please enter your NordVPN private key: "
+	read PRIVATEKEY
+	cp "$SCRIPTDIR/config/master_config" \
+	"$SCRIPTDIR/config/my_config" || exit 1
+	sed -i "s/^CLIENTPRIVATEKEY=.*/CLIENTPRIVATEKEY=\"$PRIVATEKEY\"/" \
+	"$SCRIPTDIR/config/my_config"
+fi
+

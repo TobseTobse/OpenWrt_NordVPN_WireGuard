@@ -1,5 +1,7 @@
 #!/bin/ash
 
+SCRIPTDIR=$( cd "$( dirname "$0" )" && pwd )
+
 # Accept parameters
 IFACE="$1"
 MTUTARGET="$2"
@@ -10,10 +12,10 @@ fi
 
 # Load config
 echo "[*] Loading master config..."
-source /root/config/master_config
-if [ -f "/root/config/my_config" ]; then
+source $SCRIPTDIR/config/master_config
+if [ -f "$SCRIPTDIR/config/my_config" ]; then
   echo "[*] Applying personal config override..."
-  source /root/config/my_config
+  source $SCRIPTDIR/config/my_config
 else
   echo -e "\033[1;31m[!] ERROR: no personal configuration file (my_config) found\033[0m"
   exit
