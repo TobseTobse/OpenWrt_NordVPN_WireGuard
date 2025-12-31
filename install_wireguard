@@ -3,19 +3,19 @@
 PACKAGES="wireguard-tools,kmod-wireguard,luci-proto-wireguard,luci"
 
 # Add script directory to PATH if it's not there yet
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-if ! grep -q "$SCRIPT_DIR" /etc/profile 2>/dev/null; then
+SCRIPTDIR=$(cd "$(dirname "$0")" && pwd)
+if ! grep -q "$SCRIPTDIR" /etc/profile 2>/dev/null; then
 	echo "[*] Adding scripts directory to PATH..."
 	{
     echo ""
     echo "# Added by NordVPN WireGuard scripts installer on $(date)"
-    echo "PATH=\$PATH:$SCRIPT_DIR"
+    echo "PATH=\$PATH:$SCRIPTDIR"
     echo "export PATH"
   } >> /etc/profile
 fi
 
 # Find scripts without executable flag and make them executable
-for FILE in "$SCRIPT_DIR"/*; do
+for FILE in "$SCRIPTDIR"/*; do
   [ -f "$FILE" ] || continue
   if [ ! -x "$FILE" ]; then
     echo "[*] Making $FILE executable..."
@@ -25,15 +25,15 @@ for FILE in "$SCRIPT_DIR"/*; do
 done
 
 # Install missing packages
-UPDATED_REPO=false
+UPDATEDREPO=false
 IFS=','
 for package in $PACKAGES; do
 	opkg status $package >/dev/null 2>&1
 	if [ ! $? -eq 0 ]; then
 		echo "[*] Installing $package..."
-		if [ "$UPDATED_REPO" == "false" ]; then
+		if [ "$UPDATEDREPO" == "false" ]; then
 			opkg update
-			UPDATED_REPO=true
+			UPDATEDREPO=true
 		fi
 	  opkg install $package 2>/dev/null
 	fi

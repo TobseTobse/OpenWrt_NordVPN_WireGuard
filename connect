@@ -221,13 +221,13 @@ while [ "$i" -le 100 ]; do
       removeserver
       continue
     fi
-    RTT_LINE=$(echo "$OUT" | grep 'rtt \|round-trip ')
-    if [ -z "$RTT_LINE" ]; then
+    RTTLINE=$(echo "$OUT" | grep 'rtt \|round-trip ')
+    if [ -z "$RTTLINE" ]; then
       echo -e "\033[0;33m[!] Couldn't receive a usable ping result\033[0m"
       removeserver
       continue
     fi
-    AVGMS=$(echo "$RTT_LINE" | awk -F'=' '{print $2}' | \
+    AVGMS=$(echo "$RTTLINE" | awk -F'=' '{print $2}' | \
     awk '{print $1}' | awk -F'/' '{print $2}')
     if [ -z "$AVGMS" ]; then
       echo -e "\033[0;33m[!] Couldn't parse average ping value\033[0m"
@@ -293,11 +293,11 @@ echo -e "\033[1;32m[+] Network configuration has been written\033[0m"
 
 # Remove old firewall VPN zone
 echo "[*] Removing old firewall VPN zones..."
-idx_zone=$(uci show firewall | grep "firewall.@zone\[" | \
+IDXZONE=$(uci show firewall | grep "firewall.@zone\[" | \
 grep "name='vpnfirewall'" | sed 's/.*zone\[//;s/\].*//')
-if [ -n "$idx_zone" ]; then
-  echo -e "\033[1;32m[+] Old vpnfirewall zone has been removed (index $idx_zone)\033[0m"
-  uci delete firewall.@zone["$idx_zone"]
+if [ -n "$IDXZONE" ]; then
+  echo -e "\033[1;32m[+] Old vpnfirewall zone has been removed (index $IDXZONE)\033[0m"
+  uci delete firewall.@zone["$IDXZONE"]
 fi
 
 # Remove old forwardings
@@ -369,16 +369,16 @@ echo "[*] Restarting services..."
 
 # Check if WireGuard connection has been successful
 echo "[*] Establishing connection..."
-LAST_HANDSHAKE=""
+LASTHANDSHAKE=""
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  LAST_HANDSHAKE=$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
-  if [ ! -z "$LAST_HANDSHAKE" ] && [ ! "$LAST_HANDSHAKE" -eq 0 ] 2>/dev/null; then
+  LASTHANDSHAKE=$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
+  if [ ! -z "$LASTHANDSHAKE" ] && [ ! "$LASTHANDSHAKE" -eq 0 ] 2>/dev/null; then
     echo -e "\033[1;32m[+] VPN connection is up\033[0m"
     break
   fi
   sleep 1
 done
-if [ "$LAST_HANDSHAKE" == "" ]; then
+if [ "$LASTHANDSHAKE" == "" ]; then
   echo -e "\033[1;31m[!] ERROR: we are not connected to the VPN\033[0m"
   echo "[*] Reinvoking VPN connection script..."
   removeserver

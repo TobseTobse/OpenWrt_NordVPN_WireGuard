@@ -1,28 +1,27 @@
 #!/bin/ash
 
-LAN_IF="br-lan"
-WG_IF="wg0"
+LANIF="br-lan"
 
 # Helper to extract WAN interface names from firewall config
-get_wan_ifs() {
+get_wanifs() {
   . /lib/functions.sh
 
-  WAN_IFS=""
+  WANIFS=""
   check_zone() {
     local name="$1" zname net
     config_get zname "$name" name
     [ "$zname" = "wan" ] || return 0
     for net in $(config_get "$name" network); do
-      WAN_IFS="$WAN_IFS $net"
+      WANIFS="$WANIFS $net"
     done
   }
 
   config_load firewall
   config_foreach check_zone zone
-  echo "$WAN_IFS"
+  echo "$WANIFS"
 }
 
-WAN_IFS="$(get_wan_ifs)"
+WANIFS="$(get_wanifs)"
 
 echo "[*] Creating killswitch..."
 
@@ -35,16 +34,16 @@ nft add chain inet killswitch forward \
 "{ type filter hook forward priority 0; policy accept; }"
 
 # Clean existing LAN->WAN rules in our chain (idempotent)
-for IF in $WAN_IFS; do
+for IF in $WANIFS; do
   nft delete rule inet killswitch forward \
   handle $(nft -a list chain inet killswitch forward | \
-  awk "/iifname \\\"$LAN_IF\\\" oifname \\\"$IF\\\"/ {print \$NF}") \
+  awk "/iifname \\\"$LANIF\\\" oifname \\\"$IF\\\"/ {print \$NF}") \
   2>/dev/null
 done
 
 # Add drop rules LAN->WAN
-for IF in $WAN_IFS; do
-  echo -e "\033[1;32m[+] Killswitch established: drop $LAN_IF -> $IF\033[0m"
+for IF in $WANIFS; do
+  echo -e "\033[1;32m[+] Killswitch established: drop $LANIF -> $IF\033[0m"
   nft add rule inet killswitch forward \
-  iifname "$LAN_IF" oifname "$IF" counter drop 2>/dev/null
+  iifname "$LANIF" oifname "$IF" counter drop 2>/dev/null
 done

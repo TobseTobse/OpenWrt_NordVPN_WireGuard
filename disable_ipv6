@@ -19,8 +19,8 @@ echo "[*] Deactivating IPv6 delegation in LAN..."
 uci set network.lan.delegate='0'
 
 # Stop and deactivate odhcpd (IPv6-DHCP/RA)
-OPENWRT_VERSION=$(awk -F\' '/DISTRIB_RELEASE/{print $2}' /etc/openwrt_release)
-MAJOR_MINOR=$(echo "$OPENWRT_VERSION" | cut -d. -f1-2)
+OPENWRTVERSION=$(awk -F\' '/DISTRIB_RELEASE/{print $2}' /etc/openwrt_release)
+MAJOR_MINOR=$(echo "$OPENWRTVERSION" | cut -d. -f1-2)
 if awk "BEGIN {exit !($MAJOR_MINOR < 22.03)}"; then
 	echo "[*] Stopping and deactivating odhcpd..."
 	/etc/init.d/odhcpd stop

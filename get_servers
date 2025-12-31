@@ -17,21 +17,21 @@ if [ -f "$SERVERSLISTFILE" ]; then
 fi
 
 # Update the NordVPN servers file if it is older than 1 hour
-GET_SERVER_JSON=false
+GETSERVERJSON=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60))
 if [ ! -f "$SERVERSJSONFILE" ]; then
-  GET_SERVER_JSON=true
+  GETSERVERJSON=true
 else
-  FILE_DATE=$(ls --full-time -l "$SERVERSJSONFILE" | awk '{print $6" "$7}')
-  FILE_TS=$(date -d "$FILE_DATE" +%s)
-  if [ "$FILE_TS" -lt "$LIMIT" ]; then
-    GET_SERVER_JSON=true
+  FILEDATE=$(ls --full-time -l "$SERVERSJSONFILE" | awk '{print $6" "$7}')
+  FILETS=$(date -d "$FILEDATE" +%s)
+  if [ "$FILETS" -lt "$LIMIT" ]; then
+    GETSERVERJSON=true
   fi
 fi
 
 if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
- || [ "$GET_SERVER_JSON" == "true" ]; then
+ || [ "$GETSERVERJSON" == "true" ]; then
 
   # Read NordVPN servers list (realtime data)
   echo "[*] Retrieving recent server list..."
@@ -51,20 +51,20 @@ if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
 
 fi
 
-PARSE_KEYS=false
+PARSEKEYS=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60*24))
 if [ ! -f "$SERVERKEYSFILE" ]; then
-  PARSE_KEYS=true
+  PARSEKEYS=true
 else
-  FILE_DATE=$(ls --full-time -l "$SERVERKEYSFILE" | awk '{print $6" "$7}')
-  FILE_TS=$(date -d "$FILE_DATE" +%s)
-  if [ "$FILE_TS" -lt "$LIMIT" ]; then
-    PARSE_KEYS=true
+  FILEDATE=$(ls --full-time -l "$SERVERKEYSFILE" | awk '{print $6" "$7}')
+  FILETS=$(date -d "$FILEDATE" +%s)
+  if [ "$FILETS" -lt "$LIMIT" ]; then
+    PARSEKEYS=true
   fi
 fi
 
-if [ "$PARSE_KEYS" == "true" ]; then
+if [ "$PARSEKEYS" == "true" ]; then
 
   # Parse public keys from JSON to file if keys file is older than 1 day
   echo "[*] Parsing public keys..."

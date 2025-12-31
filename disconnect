@@ -19,8 +19,8 @@ while uci -q delete network.@wireguard_wg0[0]; do :; done
 
 # Delete firewall zone 'vpnfirewall' and forwardings
 echo "[*] Deleting firewall zone and forwardings..."
-idx_zone=$(uci show firewall | grep "firewall.@zone\[.*\].name='vpnfirewall'" | cut -d'[' -f2 | cut -d']' -f1 | head -1)
-[ -n "$idx_zone" ] && uci delete firewall.@zone["$idx_zone"]
+IDXZONE=$(uci show firewall | grep "firewall.@zone\[.*\].name='vpnfirewall'" | cut -d'[' -f2 | cut -d']' -f1 | head -1)
+[ -n "$IDXZONE" ] && uci delete firewall.@zone["$IDXZONE"]
 while uci show firewall | grep -q "firewall.@forwarding\[.*\].dest='vpnfirewall'"; do
     fidx=$(uci show firewall | grep "firewall.@forwarding\[.*\].dest='vpnfirewall'" | cut -d'[' -f2 | cut -d']' -f1 | head -1)
     [ -n "$fidx" ] && uci delete firewall.@forwarding["$fidx"]
@@ -52,16 +52,16 @@ echo -e "\033[1;32m[*] Reset was successful.\033[0m"
 
 # Check if WireGuard connection has been successfully dropped
 echo "[*] Checking connection..."
-LAST_HANDSHAKE=""
+LASTHANDSHAKE=""
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  LAST_HANDSHAKE=$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
-  if [ -z "$LAST_HANDSHAKE" ] || [ "$LAST_HANDSHAKE" -eq 0 ] 2>/dev/null; then
+  LASTHANDSHAKE=$(wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
+  if [ -z "$LASTHANDSHAKE" ] || [ "$LASTHANDSHAKE" -eq 0 ] 2>/dev/null; then
     echo -e "\033[1;32m[*] VPN connection is down\033[0m"
     break
   fi
   sleep 1
 done
-if [ "$LAST_HANDSHAKE" != "" ]; then
+if [ "$LASTHANDSHAKE" != "" ]; then
   echo -e "\033[1;31m[*] ERROR: we are still connected to the VPN\033[0m"
 fi
 
@@ -69,26 +69,26 @@ sleep 10
 
 # Update TLD list
 echo "[*] Updating countries list..."
-GET_COUNTRIES=false
+GETCOUNTRIES=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60*24*30))
 if [ ! -f "$COUNTRYNAMESFILE" ]; then
-  GET_COUNTRIES=true
+  GETCOUNTRIES=true
 else
-  FILE_DATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')
-  FILE_TS=$(date -d "$FILE_DATE" +%s)
-  if [ "$FILE_TS" -lt "$LIMIT" ]; then
-    GET_COUNTRIES=true
+  FILEDATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')
+  FILETS=$(date -d "$FILEDATE" +%s)
+  if [ "$FILETS" -lt "$LIMIT" ]; then
+    GETCOUNTRIES=true
   fi
 fi
 
-if [ "$GET_COUNTRIES" == "true" ]; then
+if [ "$GETCOUNTRIES" == "true" ]; then
   wget -q -T 10 -O $COUNTRYNAMESFILE https://country.io/names.json
 fi
 
 # Output VPN server information
 echo "[*] Getting IP information..."
-IP_ADDRESS=`wget -T 10 -q -O - https://api.ipify.org/`
+IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/`
 COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country`
 REGION=`wget -T 10 -q -O - https://ipinfo.io/region`
 CITY=`wget -T 10 -q -O - https://ipinfo.io/city`
@@ -96,5 +96,5 @@ CITY=`wget -T 10 -q -O - https://ipinfo.io/city`
 COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
 grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
 
-echo -e "\033[1;36m[>] Your external IP address: $IP_ADDRESS\033[0m"
+echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
 echo -e "\033[1;36m[>] Location: $CITY, $REGION, $COUNTRYNAME\033[0m"

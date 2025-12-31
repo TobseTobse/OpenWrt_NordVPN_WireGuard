@@ -1,0 +1,41 @@
+#!/bin/ash
+
+GITHUBURL=https://raw.githubusercontent.com/TobseTobse/OpenWrt_NordVPN_WireGuard/main
+SCRIPTDIR=$( cd "$( dirname "$0" )" && pwd )
+
+# create config directories if they don't exist yet
+if [ ! -d "/tmp/config" ]; then
+  echo "[*] Creating /tmp/config directory..."
+  mkdir "/tmp/config"
+fi
+if [ ! -d "$SCRIPTDIR/config" ]; then
+  echo "[*] Creating $SCRIPTDIR/config directory..."
+  mkdir "$SCRIPTDIR/config"
+fi
+
+update_file() {
+  FILENAME=$1
+  echo "[*] Downloading $FILENAME script..."
+  wget -q -T 10 -O /tmp/${FILENAME}.update $GITHUBURL/${FILENAME}
+  SIZE=$(ls -ln -- "$FILE" | awk '{print $5}')
+  if [ "$SIZE" -gt 900 ]; then
+    echo "[*] Replacing file..."
+    mv /tmp/${FILENAME}.update $SCRIPTDIR/${FILENAME}
+    echo "[*] Setting executable flag..."
+    chmod +x $SCRIPTDIR/${FILENAME}
+  fi
+}
+
+update_file config/master_config
+update_file auto_set_mtu
+update_file connect
+update_file disable_ipv6
+update_file disconnect
+update_file get_random_server
+update_file get_servers
+update_file install_wireguard
+update_file killswitch
+update_file speedtest
+update_file update
+
+echo -e "\033[1;32m[+] You are up to date\033[0m"
