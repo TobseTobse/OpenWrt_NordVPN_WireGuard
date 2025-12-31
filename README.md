@@ -66,11 +66,35 @@ If you are on Windows you will need a tool like [PuTTY](https://www.chiark.green
 cd /root
 mkdir NordVPN
 cd NordVPN
-wget -O update https://raw.githubusercontent.com/TobseTobse/OpenWrt_NordVPN_WireGuard/main/update
+wget -O update https://raw.githubusercontent.com/TobseTobse/\
+OpenWrt_NordVPN_WireGuard/main/update
 chmod +x update
 ./update
 ```
 
-This should download all the scripts in this project.
+This should download all the scripts in this project. Then install Wireguard with this:
 
-Please stay tuned. I need to implement some more things. Final update will be here within the next hours. Thanks for your patience.
+```./install_wireguard```
+
+You will be asked for your NordVPN private key. A file called config/my_config will be created and your private key will be saved there. In this new configuration file are also some other things you could configure at a later point of time if you wish so. Just do not edit maste_config ever! Always edit my_config. To edit my_config you could either use vi (if you know what you're doing) on your router, or simply install an SCP client on your computer and connect as root to your router. I like [WinSCP](https://winscp.net) for such tasks, it runs even fine in [Wine](https://www.winehq.org).
+
+Then use your browser to login to LuCI, your OpenWrt admin backend. Usually this is at https://192.168.1.1 and go to [System > Scheduled Tasks](http://192.168.1.1/cgi-bin/luci/admin/system/crontab). Copy & paste the following lines there (and make sure to end this with an empty line):
+
+```
+*/5  * * * * sh /root/NordVPN/auto_set_mtu wg0
+*/15 * * * * sh /root/NordVPN/speedtest reconnect
+20   0 * * 2 sh /root/NordVPN/update
+
+```
+
+The first line regularly finds the best MTU for your connection, the second line checks the speed every 15 minutes and connects to another server if the speed is too low and the third line downloads updates for these scripts once per week from GitHub.
+
+Now you're good to go! Give it a try:
+
+```connect```
+
+This script searches for a VPN server itself, connects to it and establishes a killswitch. Should you ever want to disconnect from the VPN again, just do this:
+
+```disconnect```
+
+Have fun!
