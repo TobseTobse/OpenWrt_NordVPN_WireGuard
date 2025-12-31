@@ -91,6 +91,8 @@ Then use your browser to login to LuCI, your OpenWrt admin backend. Usually this
 
 The first line regularly finds the best MTU for your connection, the second line checks the speed every 15 minutes and connects to another server if the speed is too low and the third line downloads updates for these scripts once per week from GitHub.
 
+### Usage
+
 Now you're good to go! Give it a try:
 
 ```connect```
