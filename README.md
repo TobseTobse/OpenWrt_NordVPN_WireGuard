@@ -83,9 +83,10 @@ You will be asked for your NordVPN private key. A file called config/my_config w
 Then use your browser to login to LuCI, your OpenWrt admin backend. Usually this is at https://192.168.1.1 and go to [System > Scheduled Tasks](http://192.168.1.1/cgi-bin/luci/admin/system/crontab). Copy & paste the following lines there (and make sure to end this with an empty line):
 
 ```
-*/5  * * * * sh /root/NordVPN/auto_set_mtu wg0
-*/15 * * * * sh /root/NordVPN/speedtest reconnect
-20   0 * * 2 sh /root/NordVPN/update
+@reboot      /root/NordVPN/connect
+*/5  * * * * /root/NordVPN/auto_set_mtu wg0 $(cat /tmp/currentserver)
+*/15 * * * * /root/NordVPN/speedtest reconnect
+20   0 * * 2 /root/NordVPN/update
 
 ```
 
