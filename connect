@@ -76,7 +76,7 @@ server_info() {
 
 # Remove server from servers list
 removeserver() {
-  echo "[*] Removing server from the list..."
+  echo "[*] Temporarily removing server from the list..."
   grep -v -F "$SERVER" "$SERVERSLISTFILE" > \
   "$CLEANSERVERSLISTFILE" && mv "$CLEANSERVERSLISTFILE" "$SERVERSLISTFILE"
 }

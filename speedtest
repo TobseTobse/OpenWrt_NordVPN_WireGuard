@@ -136,12 +136,12 @@ END {
   printf "%g", TOP5AVG
 }' /tmp/all_results.log)
 
-echo -e "\033[1;36m[>] Best match average: $TOP5AVG Mbit/s\033[0m"
-
 # Peak
 peak=$(awk '{if($1>max)max=$1} END{srand(); printf "%.2f\n", max - (rand()*max*.05)}' /tmp/all_results.log)s
 peak=$(awk -v p="$peak" 'BEGIN{printf "%2g\n", p }')
-echo -e "\033[1;36m[>] Peak: $peak Mbit/s\033[0m"
+echo -e "\033[1;33m[>] Peak: $peak Mbit/s\033[0m"
+
+echo -e "\033[1;36m[>] Best match average: $TOP5AVG Mbit/s\033[0m"
 
 COMPARISON=`echo | awk -v me=$TOP5AVG -v mi=$MINIMUMSPEED \
 '{if (me>mi) printf ("greater"); else printf ("smaller");}'`

@@ -58,44 +58,54 @@ BEGIN {
 		country = line
 	}
 
-	ignore = 0
 
-	# Check if bridge servers are allowed
-	if (bridges != "yes" && line ~ /-/) {
-		ignore = 1
-	}
-
-	# Check normal servers for IGNORECOUNTRIES
-	if (exclusive == "" && country in ignorecountries) {
-		ignore = 1
-	}
-
-	# Check bridge servers for IGNORECOUNTRIES
- 	if (index(country, "-") > 0) {
-    split(country, parts, "-")
-    if (parts[1] in ignorecountries \
-     || parts[2] in ignorecountries) {
-     	ignore = 1
-    }
-	}
-
-	# Check on onion servers
-	if (onion != "yes" && country ~ /onion/) {
-		ignore = 1
-	}
-
-	# Check on socks servers
-	if (socks != "yes" && country ~ /socks/) {
-		ignore = 1
-	}
-
-	# Build comma-separated list of values per country
-	if ((exclusive != "" && country in exclusivecountries) \
-	 || ignore == 0) {
-		if (country in countries) {
-			countries[country] = countries[country] "," line
-		} else {
+	# Build comma-separated list of values per country from exclusive countries
+	if (exclusive != "") {
+		if (country in exclusivecountries && !(country in countries)) {
 			countries[country] = line
+		}
+	} else {
+
+		# No exclusive countries defined, so follow remaining rules...
+		ignore = 0
+
+		# Check if bridge servers are allowed
+		if (bridges != "yes" && line ~ /-/) {
+			ignore = 1
+		}
+
+		# Check normal servers for IGNORECOUNTRIES
+		if (exclusive == "" && country in ignorecountries) {
+			ignore = 1
+		}
+
+		# Check bridge servers for IGNORECOUNTRIES
+	 	if (index(country, "-") > 0) {
+	    split(country, parts, "-")
+	    if (parts[1] in ignorecountries \
+	     || parts[2] in ignorecountries) {
+	     	ignore = 1
+	    }
+		}
+
+		# Check on onion servers
+		if (onion != "yes" && country ~ /onion/) {
+			ignore = 1
+		}
+
+		# Check on socks servers
+		if (socks != "yes" && country ~ /socks/) {
+			ignore = 1
+		}
+
+
+		# Build comma-separated list of values per country from all non-ignored countries
+		if (ignore == 0) {
+			if (country in countries) {
+				countries[country] = countries[country] "," line
+			} else {
+				countries[country] = line
+			}
 		}
 	}
 
