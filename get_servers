@@ -2,6 +2,7 @@
 
 SERVERLISTURL=https://api.nordvpn.com/v1/servers?limit=16384
 SERVERSJSONFILE=/tmp/servers.json
+SERVERSORIGFILE=/tmp/servers.orig
 SERVERSLISTFILE=/tmp/servers.list
 SERVERLOADSFILE=/tmp/servers.loads
 SERVERKEYSFILE=/tmp/servers.keys
@@ -35,8 +36,12 @@ if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
 
   # Read NordVPN servers list (realtime data)
   echo "[*] Retrieving recent server list..."
-  wget -q -T 10 -O $SERVERSJSONFILE $SERVERLISTURL
+  rm $SERVERSJSONFILE
+  wget -q -T 10 -O $SERVERSJSONFILE $SERVERLISTURL 2>/dev/null
   if [ -s $SERVERSJSONFILE ]; then
+
+    # Make a backup
+    cp $SERVERSJSONFILE $SERVERSORIGFILE
 
     # Get filesize
     SERVERSJSONFILESIZE=$(wc -c < "$SERVERSJSONFILE") 2>/dev/null
@@ -46,15 +51,24 @@ if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
     echo "[*] Parsing server loads..."
     grep -o '"hostname"[^"]*"[^}]*"load"[^0-9]*[0-9][0-9]*' $SERVERSJSONFILE | \
     sed 's/"hostname":"\([^".]*\)[^"]*","load":\([0-9][0-9]*\)/\1:\2/' > $SERVERLOADSFILE
+  else
+    echo -e "\033[0;33m[!] Couldn't retrieve servers list\033[0m"
 
+    # Restore backup
+    if [ -r $SERVERSORIGFILE ]; then
+      cp $SERVERSJSONFILE $SERVERSORIGFILE
+      if [ -r $SERVERSJSONFILE]; then
+        SERVERSJSONFILESIZE=$(wc -c < "$SERVERSJSONFILE") 2>/dev/null
+        echo -e "\033[1;36m[>] Restored $SERVERSJSONFILESIZE bytes of server information\033[0m"
+      fi
+    fi
   fi
-
 fi
 
 PARSEKEYS=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60*24))
-if [ ! -f "$SERVERKEYSFILE" ]; then
+if [ ! -s "$SERVERKEYSFILE" ] || [ ! -s $SERVERSLISTFILE ]; then
   PARSEKEYS=true
 else
   FILEDATE=$(ls --full-time -l "$SERVERKEYSFILE" | awk '{print $6" "$7}')

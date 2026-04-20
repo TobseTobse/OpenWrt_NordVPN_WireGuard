@@ -81,6 +81,24 @@ removeserver() {
   "$CLEANSERVERSLISTFILE" && mv "$CLEANSERVERSLISTFILE" "$SERVERSLISTFILE"
 }
 
+# Refresh server lists
+refreshserverlists() {
+  echo "[*] Removing local server lists..."
+  if [ -f "$CLEANSERVERSLISTFILE" ]; then
+    rm "$CLEANSERVERSLISTFILE"
+  fi
+  if [ -f "$SERVERSLISTFILE" ]; then
+    rm "$SERVERSLISTFILE"
+  fi
+  sh $(dirname "$0")/get_servers
+
+  # If this procedure was called the roof is on fire
+  # So restart this script without country selection
+  echo -e "\033[1;31m[!] Trying to reconnect without country selection\033[0m"
+  "$0"
+  exit
+}
+
 # Load config
 echo "[*] Loading master config..."
 source $SCRIPTDIR/config/master_config
@@ -148,7 +166,8 @@ while [ "$i" -le 100 ]; do
   FILTEREDSERVERS < <(printf %s $RESULT)
   if [ "$SERVER" == "" ]; then
     echo -e "\033[1;31m[!] ERROR: No servers found for country '$1'\033[0m"
-    continue
+    refreshserverlists
+    break
   fi
 
   # Output information about server filters
@@ -156,6 +175,13 @@ while [ "$i" -le 100 ]; do
     echo -e "\033[1;36m[>] There remain $FILTEREDCOUNTRIES countries and" \
     "$FILTEREDSERVERS servers after applying your configuration\033[0m"
     FILTERINFO=false
+
+    # Check if there are actually any servers left to connect to
+    if [ "$FILTEREDSERVERS" == "0" ]; then
+      echo -e "\033[1;31m[!] ERROR: No servers left in local list\033[0m"
+      refreshserverlists
+      continue
+    fi
   fi
 
   # Extract country from server name
@@ -219,34 +245,37 @@ while [ "$i" -le 100 ]; do
     RC=$?
     if [ "$RC" -ne 0 ]; then
       echo -e "\033[0;33m[!] Ping failed (received no pong)\033[0m"
-      removeserver
-      continue
-    fi
-    RTTLINE=$(echo "$OUT" | grep 'rtt \|round-trip ')
-    if [ -z "$RTTLINE" ]; then
-      echo -e "\033[0;33m[!] Couldn't receive a usable ping result\033[0m"
-      removeserver
-      continue
-    fi
-    AVGMS=$(echo "$RTTLINE" | awk -F'=' '{print $2}' | \
-    awk '{print $1}' | awk -F'/' '{print $2}')
-    if [ -z "$AVGMS" ]; then
-      echo -e "\033[0;33m[!] Couldn't parse average ping value\033[0m"
-      removeserver
-      continue
-    fi
-    COMPARISON=$(awk -v am=$AVGMS -v mp=$MAXPONGTIME \
-    'BEGIN { print (am <= mp) ? "OK" : "Not OK" }')
-    AVGMS=$(printf "%.*f\n" "0" "$AVGMS")
-    if [ "$COMPARISON" == "OK" ]; then
-      echo -e "\033[1;32m[+] Pong is okay:" \
-      "$AVGMS <= $MAXPONGTIME ms\033[0m"
-      break
+      if [ "$ALLOWNOPONG" != "yes" ]; then
+        removeserver
+        continue
+      fi
     else
-      echo -e "\033[0;33m[!] Pong is not okay:" \
-      "$AVGMS > $MAXPONGTIME ms\033[0m"
-      removeserver
-      continue
+      RTTLINE=$(echo "$OUT" | grep 'rtt \|round-trip ')
+      if [ -z "$RTTLINE" ]; then
+        echo -e "\033[0;33m[!] Couldn't receive a usable ping result\033[0m"
+        removeserver
+        continue
+      fi
+      AVGMS=$(echo "$RTTLINE" | awk -F'=' '{print $2}' | \
+      awk '{print $1}' | awk -F'/' '{print $2}')
+      if [ -z "$AVGMS" ]; then
+        echo -e "\033[0;33m[!] Couldn't parse average ping value\033[0m"
+        removeserver
+        continue
+      fi
+      COMPARISON=$(awk -v am=$AVGMS -v mp=$MAXPONGTIME \
+      'BEGIN { print (am <= mp) ? "OK" : "Not OK" }')
+      AVGMS=$(printf "%.*f\n" "0" "$AVGMS")
+      if [ "$COMPARISON" == "OK" ]; then
+        echo -e "\033[1;32m[+] Pong is okay:" \
+        "$AVGMS <= $MAXPONGTIME ms\033[0m"
+        break
+      else
+        echo -e "\033[0;33m[!] Pong is not okay:" \
+        "$AVGMS > $MAXPONGTIME ms\033[0m"
+        removeserver
+        continue
+      fi
     fi
   fi
 
@@ -402,7 +431,7 @@ if [ "$TESTSPEED" == "yes" ]; then
 fi
 
 # Find best MTU and set it
-if [ "$SETMTU" == "yes" ]; then
+if [ "$SETMTU" == "yes" ] && [ "$RC" -eq 0 ]; then
   if [ "$MTUWAIT" != "" ] && [ "$MTUWAIT" -gt 0 ]; then
     echo -e "\033[1;36m[>] Waiting     : $MTUWAIT s\033[0m"
     echo "[*] Having a nap for $MTUWAIT seconds"\

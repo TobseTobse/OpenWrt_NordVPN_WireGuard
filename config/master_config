@@ -145,6 +145,9 @@ PINGSERVER=yes
 # (needs PINGSERVER=yes to become effective)
 MAXPONGTIME=300
 
+# Allow servers which do not pong at all
+ALLOWNOPONG=yes
+
 # Run a speed test after connection to the VPN server has established
 TESTSPEED=yes
 
