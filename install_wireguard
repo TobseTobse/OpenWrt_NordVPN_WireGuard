@@ -42,14 +42,10 @@ for FILE in "$SCRIPTDIR"/*; do
 done
 
 # Install missing packages
-UPDATEDREPO=false
-CURRENT_TIME=$(date +%s)
-APK_LAST_UPDATED=$(find /var/lib/apk/ -maxdepth 0 -printf %T@ 2>/dev/null | cut -d. -f1)
-APK_UPDATED_SECS_AGO=$((CURRENT_TIME - APK_LAST_UPDATED))
-
 IFS=','
 
 if [ "$PACKAGEMANAGER" == "opkg" ]; then
+	UPDATEDREPO=false
 	for package in $PACKAGES; do
 		opkg status $package >/dev/null 2>&1
 		if [ ! $? -eq 0 ]; then
@@ -63,16 +59,12 @@ if [ "$PACKAGEMANAGER" == "opkg" ]; then
 		fi
 	done
 else
+	echo "[*] Updating apk package repository..."
+	apk update 2>/dev/null >/dev/null
 	for package in $PACKAGES; do
 		apk list $package | grep "\[installed\]" 2>/dev/null >/dev/null
 		if [ ! $? -eq 0 ]; then
 			echo "[*] Installing $package..."
-			if [ "$UPDATEDREPO" == "false" ] \
-			 && [ $CURRENT_TIME -gt $((APK_UPDATED_SECS_AGO + 60*60*24*30)) ]; then
-				echo "[*] Updating apk package repository..."
-				apk update
-				UPDATEDREPO=true
-			fi
 		  apk add $package 2>/dev/null
 		fi
 	done
