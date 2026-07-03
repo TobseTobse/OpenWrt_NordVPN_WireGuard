@@ -98,8 +98,22 @@ Now you're good to go! Give it a try:
 
 ```connect```
 
-This script searches for a VPN server itself, connects to it and establishes a killswitch. Should you ever want to disconnect from the VPN again, just do this:
+If you prefer to connect to a dedicated country, try the country's TLD code like this, e.g. to connect to Poland:
+
+```connect pl```
+
+This script searches for a VPN server itself, connects to it and establishes a killswitch.
+
+Should you ever want to disconnect from the VPN again, just do this:
 
 ```disconnect```
+
+### Troubleshooting
+
+If your connect script should hang one time, simply hit Ctrl+C, then run
+
+```disconnect```
+
+and retry connecting with the connect script.
 
 Have fun!
