@@ -13,7 +13,7 @@ fi
 # Load config
 echo "[*] Loading master config..."
 source $SCRIPTDIR/config/master_config
-if [ -f "$SCRIPTDIR/config/my_config" ]; then
+if [ -s "$SCRIPTDIR/config/my_config" ]; then
   echo "[*] Applying personal config override..."
   source $SCRIPTDIR/config/my_config
 else
@@ -86,6 +86,7 @@ while [ "$MTU" -le "$MAXMTU" ]; do
       if [ "$BETTER" -eq 1 ]; then
         BESTMTU="$MTU"
         BESTAVGMS="$AVGMS"
+        echo -e "\033[1;32m[+] So far MTU $MTU is best\033[0m"
       fi
     fi
   fi

@@ -20,16 +20,16 @@ BEGIN {
   FS=","
   split("", ignorecountries)
   if (ignore != "") {
-	  n = split(ignore, country, ",")
+	  n = split(ignore, countryparts, ",")
 	  for (i = 1; i <= n; i++) {
-	    ignorecountries[country[i]] = 1
+	    ignorecountries[countryparts[i]] = 1
 	  }
 	}
 	split("", exclusivecountries)
 	if (exclusive != "") {
-	  n = split(exclusive, country, ",")
+	  n = split(exclusive, countryparts, ",")
 	  for (i = 1; i <= n; i++) {
-	    exclusivecountries[country[i]] = 1
+	    exclusivecountries[countryparts[i]] = 1
 	  }
 	}
 

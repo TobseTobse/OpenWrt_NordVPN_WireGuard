@@ -42,10 +42,6 @@ get_value() {
 server_info() {
   echo "[*] Getting geolocation information..."
   IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/ 2>/dev/null`
-  COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
-  REGION=`wget -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
-  CITY=`wget -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
-
   if [ "$IPADDRESS" == "" ]; then
     echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
     echo "[*] Reinvoking VPN connection script..."
@@ -53,11 +49,13 @@ server_info() {
     sh "$0" "$1"
     exit
   fi
+  echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
 
+  COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
+  REGION=`wget -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
+  CITY=`wget -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
   COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
   grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
-
-  echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
 
   # Check if server is located in IGNORECOUNTRIES
   LOWERCOUNTRY=$(printf '%s\n' "$COUNTRY" | tr 'A-Z' 'a-z')
@@ -84,10 +82,10 @@ removeserver() {
 # Refresh server lists
 refreshserverlists() {
   echo "[*] Removing local server lists..."
-  if [ -f "$CLEANSERVERSLISTFILE" ]; then
+  if [ -s "$CLEANSERVERSLISTFILE" ]; then
     rm "$CLEANSERVERSLISTFILE"
   fi
-  if [ -f "$SERVERSLISTFILE" ]; then
+  if [ -s "$SERVERSLISTFILE" ]; then
     rm "$SERVERSLISTFILE"
   fi
   sh $(dirname "$0")/get_servers
@@ -102,7 +100,7 @@ refreshserverlists() {
 # Load config
 echo "[*] Loading master config..."
 source $SCRIPTDIR/config/master_config
-if [ -f "$SCRIPTDIR/config/my_config" ]; then
+if [ -s "$SCRIPTDIR/config/my_config" ]; then
   echo "[*] Applying personal config override..."
   source $SCRIPTDIR/config/my_config
 else
@@ -111,11 +109,10 @@ else
 fi
 
 # Update TLD list
-echo "[*] Updating countries list..."
 GET_COUNTRIES=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60*24*30))
-if [ ! -f "$COUNTRYNAMESFILE" ]; then
+if [ ! -s "$COUNTRYNAMESFILE" ]; then
   GET_COUNTRIES=true
 else
   FILE_DATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')
@@ -126,7 +123,9 @@ else
 fi
 
 if [ "$GET_COUNTRIES" == "true" ]; then
+  echo "[*] Updating countries list..."
   wget -q -T 10 -O $COUNTRYNAMESFILE https://country.io/names.json
+  touch $COUNTRYNAMESFILE
 fi
 LOWERIGNORECOUNTRIES=$(printf '%s\n' "$IGNORECOUNTRIES" | tr 'a-Z' 'A-Z')
 
@@ -187,11 +186,11 @@ while [ "$i" -le 100 ]; do
   # Extract country from server name
   COUNTRY=$(echo "$SERVER" | grep -o '[a-zA-Z]*[0-9]' | grep -o '[a-zA-Z]*' | tail -1)
   COUNTRY=$(printf '%s\n' "$COUNTRY" | tr 'a-z' 'A-Z')
-
+  
   # Check if server is located in IGNORECOUNTRIES
   COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
   grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
-  echo -e "\033[1;36m[>] Potential server candidate #$i:" \
+    echo -e "\033[1;36m[>] Potential server candidate #$i:" \
   "$SERVER ($COUNTRYNAME)\033[0m"
   SERVERHOST="$SERVER.nordvpn.com"
   echo "[*] Fetching ip address for $SERVERHOST..."
@@ -218,13 +217,6 @@ while [ "$i" -le 100 ]; do
     fi
   fi
 
-  SERVERPUBLICKEY=$(get_value pubkeys $SERVER)
-  if [ "$SERVERPUBLICKEY" == "" ]; then
-    echo -e "\033[1;31m[!] ERROR: No public key found for server '$SERVER'\033[0m"
-    removeserver
-    continue
-  fi
-
   # Check server load
   if [ "$CHECKLOAD" == "yes" ]; then
     echo "[*] Checking server load..."
@@ -244,7 +236,7 @@ while [ "$i" -le 100 ]; do
     OUT="$(ping -c 3 $SERVERHOST 2>/dev/null)"
     RC=$?
     if [ "$RC" -ne 0 ]; then
-      echo -e "\033[0;33m[!] Ping failed (received no pong)\033[0m"
+      echo -e "\033[0;33m[!] Ping failed (received no pong) - exceptionally ignoring ping filter\033[0m"
       if [ "$ALLOWNOPONG" != "yes" ]; then
         removeserver
         continue
@@ -282,8 +274,18 @@ while [ "$i" -le 100 ]; do
   # if we came till here without break or continue, we're good ;-)
   break
 done
+
+echo "[*] Reading server's public key..."
+SERVERPUBLICKEY=$(get_value pubkeys $SERVER)
+if [ "$SERVERPUBLICKEY" == "" ]; then
+  echo -e "\033[1;31m[!] ERROR: No public key found for server '$SERVER'\033[0m"
+  removeserver
+  continue
+fi
+
+echo -e "\033[1;36m[>] Public key is $SERVERPUBLICKEY\033[0m"
 echo -e "\033[1;36m[>] VPN server will be $SERVERHOST\033[0m"
-echo -e "\033[1;36m[>] The server's public key is $SERVERPUBLICKEY\033[0m"
+
 echo "$SERVERHOST" > $CURRENTSERVERFILE
 
 # Disable Iv6
@@ -394,8 +396,8 @@ sh $(dirname "$0")/killswitch
 
 # Restart services
 echo "[*] Restarting services..."
-/etc/init.d/network restart
-/etc/init.d/firewall restart
+/etc/init.d/network restart 2>/dev/null
+/etc/init.d/firewall restart 2>/dev/null
 
 # Check if WireGuard connection has been successful
 echo "[*] Establishing connection..."
@@ -433,7 +435,6 @@ fi
 # Find best MTU and set it
 if [ "$SETMTU" == "yes" ] && [ "$RC" -eq 0 ]; then
   if [ "$MTUWAIT" != "" ] && [ "$MTUWAIT" -gt 0 ]; then
-    echo -e "\033[1;36m[>] Waiting     : $MTUWAIT s\033[0m"
     echo "[*] Having a nap for $MTUWAIT seconds"\
     "before starting the MTU test..."
     sleep $MTUWAIT

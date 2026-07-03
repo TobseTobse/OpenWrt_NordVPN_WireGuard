@@ -21,7 +21,7 @@ fi
 GETSERVERJSON=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60))
-if [ ! -f "$SERVERSJSONFILE" ]; then
+if [ ! -s "$SERVERSJSONFILE" ]; then
   GETSERVERJSON=true
 else
   FILEDATE=$(ls --full-time -l "$SERVERSJSONFILE" | awk '{print $6" "$7}')
@@ -31,16 +31,20 @@ else
   fi
 fi
 
-if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
- || [ "$GETSERVERJSON" == "true" ]; then
-
-  # Read NordVPN servers list (realtime data)
+# Get NordVPN servers list (realtime data)
+if [ "$GETSERVERJSON" == "true" ]; then
   echo "[*] Retrieving recent server list..."
-  rm $SERVERSJSONFILE
+  if [ -f "$SERVERSJSONFILE" ]; then
+    rm $SERVERSJSONFILE
+  fi
   wget -q -T 10 -O $SERVERSJSONFILE $SERVERLISTURL 2>/dev/null
+  touch $SERVERSJSONFILE
+fi
+
+if [ ! -s "$SERVERLOADSFILE" ] || [ ! -s "$SERVERSLISTFILE" ]; then
   if [ -s $SERVERSJSONFILE ]; then
 
-    # Make a backup
+    # Make a backup of the orignal JSON file
     cp $SERVERSJSONFILE $SERVERSORIGFILE
 
     # Get filesize
@@ -54,7 +58,7 @@ if  [ ! -f "$SERVERSLISTFILE" ] || [ ! -f "$SERVERLOADSFILE" ] \
   else
     echo -e "\033[0;33m[!] Couldn't retrieve servers list\033[0m"
 
-    # Restore backup
+    # Restore original JSON backup
     if [ -r $SERVERSORIGFILE ]; then
       cp $SERVERSJSONFILE $SERVERSORIGFILE
       if [ -r $SERVERSJSONFILE]; then
@@ -80,25 +84,35 @@ fi
 
 if [ "$PARSEKEYS" == "true" ]; then
 
-  # Parse public keys from JSON to file if keys file is older than 1 day
-  echo "[*] Parsing public keys..."
   if [ -f "$SERVERKEYSFILE" ]; then
     rm $SERVERKEYSFILE
   fi
 
-  # Split JSON in chunks delimited by "station"
-  awk -v RS='"station"' 'NR > 1 { print }' "$SERVERSJSONFILE" | \
-  while IFS= read -r chunk; do
-    printf '%s\n' "$chunk" > /tmp/chunk
-    hostname=$(printf '%s\n' "$chunk" | grep -o '"hostname":"[^"]*"' | \
-    sed 's/.*"hostname":"\([^".]*\)[^"]*"/\1/')
-    public_key=$(grep -o 'public_key",\s*"value":"[^"]*' /tmp/chunk | \
-    sed -n 's/.*public_key","value":"\(.*\)/\1/p')
-    printf '%s\n' "$hostname:$public_key" >> $SERVERKEYSFILE
-  done
-  rm -f /tmp/chunk
+ # Parse public keys from JSON to file if keys file is older than 1 day
+  echo "[*] Parsing public keys..."
+    awk '
+    BEGIN { RS = "\"station\""; FS = "\"" }
+    {
+      for (i = 1; i <= NF; i++) {
+        if ($i == "hostname") {
+          hostname_full = $(i+2)
+          split(hostname_full, arr, ".")
+          hostname = arr[1]
+        }
+        if ($i == "value" && $(i-2) == "public_key") {
+          public_key = $(i+2)
+        }
+      }
+      if (hostname && public_key) {
+        print hostname ":" public_key
+        hostname = ""
+        public_key = ""
+      }
+    }
+  ' "$SERVERSJSONFILE" > "$SERVERKEYSFILE"
 
   # Create file with sorted server names
   echo "[*] Sorting server list..."
   sed 's/:.*//' $SERVERKEYSFILE | sort -u > $SERVERSLISTFILE
+  touch $SERVERSLISTFILE
 fi

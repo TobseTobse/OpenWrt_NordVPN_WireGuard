@@ -112,7 +112,7 @@ IPADDRESSURLS=api.ipify.org,checkip.amazonaws.com,ip.tyk.nu,whatismyip.akamai.co
 
 # Countries to ignore when connecting to a random exit node,
 # separated by comma (e.g. countries known for mass surveillance)
-IGNORECOUNTRIES=ae,af,at,ao,au,az,be,bi,bf,bh,bj,bn,by,ca,cd,cf,cg,ch,cm,cn,cu,de,dk,dj,dz,eg,er,es,et,fr,ga,ge,gq,gn,gu,hk,ht,hu,il,in,iq,ir,it,jp,kg,kh,km,kp,kr,kw,kz,la,ly,ma,md,ml,mm,mx,mz,ne,ni,nl,no,nz,om,pk,ps,qa,rs,ru,rw,sa,sd,se,sg,so,sv,sw,ss,sy,sz,td,th,tj,tm,tn,tr,tw,tz,ua,ug,uk,us,uz,ve,vn,ye,zw
+IGNORECOUNTRIES=ae,af,at,ao,au,az,be,bi,bf,bh,bj,bn,by,ca,cd,cf,cg,ch,cm,cn,cu,de,dk,dj,dz,eg,er,es,et,fr,ga,gb,ge,gq,gn,gu,hk,ht,hu,il,in,iq,ir,it,jp,kg,kh,km,kp,kr,kw,kz,la,ly,ma,md,ml,mm,mx,mz,ne,ni,nl,no,nz,om,pk,ps,qa,rs,ru,rw,sa,sd,se,sg,so,sv,sw,ss,sy,sz,td,th,tj,tm,tn,tr,tw,tz,ua,ug,us,uz,ve,vn,ye,zw
 
 # Exclusive list of countries to connect to (don't connect to any
 # other countries than to these in this comma separated list)

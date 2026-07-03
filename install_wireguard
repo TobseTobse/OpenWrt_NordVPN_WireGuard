@@ -14,6 +14,23 @@ if ! grep -q "$SCRIPTDIR" /etc/profile 2>/dev/null; then
   } >> /etc/profile
 fi
 
+# Determine if OpenWrt image is based on opkg or apk
+PACKAGEMANAGER=""
+if command -v opkg >/dev/null 2>&1; then
+  PACKAGEMANAGER="opkg"
+elif command -v apk >/dev/null 2>&1; then
+  PACKAGEMANAGER="apk"
+else
+  echo -e "\033[1;31m[!] ERROR: no package manager (opkg or apk) found.\033[0m"
+  exit 1
+fi
+
+# check if personal config file already exists
+HADCONFIG="no"
+if [ -s "$SCRIPTDIR/config/my_config" ]; then
+	HADCONFIG="yes"
+fi
+
 # Find scripts without executable flag and make them executable
 for FILE in "$SCRIPTDIR"/*; do
   [ -f "$FILE" ] || continue
@@ -26,22 +43,46 @@ done
 
 # Install missing packages
 UPDATEDREPO=false
+CURRENT_TIME=$(date +%s)
+APK_LAST_UPDATED=$(find /var/lib/apk/ -maxdepth 0 -printf %T@ 2>/dev/null | cut -d. -f1)
+APK_UPDATED_SECS_AGO=$((CURRENT_TIME - APK_LAST_UPDATED))
+
 IFS=','
-for package in $PACKAGES; do
-	opkg status $package >/dev/null 2>&1
-	if [ ! $? -eq 0 ]; then
-		echo "[*] Installing $package..."
-		if [ "$UPDATEDREPO" == "false" ]; then
-			opkg update
-			UPDATEDREPO=true
+
+if [ "$PACKAGEMANAGER" == "opkg" ]; then
+	for package in $PACKAGES; do
+		opkg status $package >/dev/null 2>&1
+		if [ ! $? -eq 0 ]; then
+			echo "[*] Installing $package..."
+			if [ "$UPDATEDREPO" == "false" ]; then
+				echo "[*] Updating opkg package repository..."
+				opkg update
+				UPDATEDREPO=true
+			fi
+		  opkg install $package 2>/dev/null
 		fi
-	  opkg install $package 2>/dev/null
-	fi
-done
+	done
+else
+	for package in $PACKAGES; do
+		apk list $package | grep "\[installed\]" 2>/dev/null >/dev/null
+		if [ ! $? -eq 0 ]; then
+			echo "[*] Installing $package..."
+			if [ "$UPDATEDREPO" == "false" ] \
+			 && [ $CURRENT_TIME -gt $((APK_UPDATED_SECS_AGO + 60*60*24*30)) ]; then
+				echo "[*] Updating apk package repository..."
+				apk update
+				UPDATEDREPO=true
+			fi
+		  apk add $package 2>/dev/null
+		fi
+	done
+fi
 
 # generate new connection key pair
-if [ ! -f "/etc/wireguard/privatekey" ] || [ ! -f "/etc/wireguard/publickey" ]; then
+if  [ ! -s "/etc/wireguard/privatekey" ] || [ ! -s "/etc/wireguard/publickey" ] || \
+	[ ! -d "/etc/wireguard/" ]; then
 	echo "[*] Generating WireGuard key pair..."
+	mkdir -p /etc/wireguard/
 	wg genkey > /etc/wireguard/privatekey 2>/dev/null
 	wg pubkey < /etc/wireguard/privatekey > /etc/wireguard/publickey 2>/dev/null
 fi
@@ -50,11 +91,16 @@ fi
 source $SCRIPTDIR/config/master_config
 
 # ask user for private key if not done yet
-if [ ! -f "$SCRIPTDIR/config/my_config" ]; then
+if [ ! -s "$SCRIPTDIR/config/my_config" ]; then
 	printf "Please enter your NordVPN private key: "
 	read PRIVATEKEY
 	awk 'BEGIN{RS=""; ORS="\n\n"} NR>1' \
 	"$SCRIPTDIR/config/master_config" > "$SCRIPTDIR/config/my_config"
 	sed -i "s/^CLIENTPRIVATEKEY=.*/CLIENTPRIVATEKEY=\"$PRIVATEKEY\"/" \
 	"$SCRIPTDIR/config/my_config"
+fi
+
+# done
+if [ "$HADCONFIG" != "yes" ] && [ -s "$SCRIPTDIR/config/my_config" ]; then
+  echo -e "\033[1;32m[+] Successfully installed configuration.\033[0m"
 fi
