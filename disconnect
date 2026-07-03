@@ -3,6 +3,9 @@
 COUNTRYNAMESFILE=/tmp/countries.json
 
 echo -e "\033[1;32m[*] WireGuard/VPN is being completely reset...\033[0m"
+killall connect >/dev/null 2>&1
+killall get_servers >/dev/null 2>&1
+killall speedtest >/dev/null 2>&1
 
 # Get rid of killswitch first
 echo "[*] Removing killswitch..."
@@ -45,10 +48,10 @@ uci commit firewall
 
 # Restart services
 echo "[*] Restarting services..."
-/etc/init.d/network restart
-/etc/init.d/firewall restart
+/etc/init.d/network restart 2>/dev/null
+/etc/init.d/firewall restart 2>/dev/null
 
-echo -e "\033[1;32m[*] Reset was successful.\033[0m"
+echo -e "\033[1;32m[*] Reset was successful\033[0m"
 
 # Check if WireGuard connection has been successfully dropped
 echo "[*] Checking connection..."
@@ -72,7 +75,7 @@ echo "[*] Updating countries list..."
 GETCOUNTRIES=false
 NOW=$(date +%s)
 LIMIT=$((NOW - 60*60*24*30))
-if [ ! -f "$COUNTRYNAMESFILE" ]; then
+if [ ! -s "$COUNTRYNAMESFILE" ]; then
   GETCOUNTRIES=true
 else
   FILEDATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')

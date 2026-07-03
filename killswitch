@@ -37,7 +37,7 @@ nft add chain inet killswitch forward \
 for IF in $WANIFS; do
   nft delete rule inet killswitch forward \
   handle $(nft -a list chain inet killswitch forward | \
-  awk "/iifname \\\"$LANIF\\\" oifname \\\"$IF\\\"/ {print \$NF}") \
+  awk '/iifname "'"$LANIF"'" oifname "'"$IF"'"/ {print $NF}') \
   2>/dev/null
 done
 
