@@ -1,0 +1,41 @@
+#!/bin/ash
+
+COUNTRYNAMESFILE=/tmp/countries.json
+
+# Update TLD list
+echo "[*] Updating countries list..."
+GETCOUNTRIES=false
+NOW=$(date +%s)
+LIMIT=$((NOW - 60*60*24*30))
+if [ ! -s "$COUNTRYNAMESFILE" ]; then
+  GETCOUNTRIES=true
+else
+  FILEDATE=$(ls --full-time -l "$COUNTRYNAMESFILE" | awk '{print $6" "$7}')
+  FILETS=$(date -d "$FILEDATE" +%s)
+  if [ "$FILETS" -lt "$LIMIT" ]; then
+    GETCOUNTRIES=true
+  fi
+fi
+
+if [ "$GETCOUNTRIES" == "true" ]; then
+  wget -q -T 10 -O $COUNTRYNAMESFILE https://country.io/names.json
+fi
+
+# Output VPN server information
+echo "[*] Getting geolocation information..."
+IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/`
+COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country`
+REGION=`wget -T 10 -q -O - https://ipinfo.io/region`
+CITY=`wget -T 10 -q -O - https://ipinfo.io/city`
+JSON=`wget -T 10 -q -O - https://ipinfo.io/json`
+
+COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+ASN=`echo "$JSON" | sed -n 's/.*"org": "AS[0-9]* \(.*\)".*/\1/p'`
+
+echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
+echo -e "\033[1;36m[>] Location: $CITY, $REGION, $COUNTRYNAME\033[0m"
+
+if [ "$ASN" != "" ]; then
+  echo -e "\033[1;36m[>] ASN: $ASN\033[0m"
+fi
