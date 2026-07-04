@@ -139,7 +139,7 @@ CHECKLOAD=yes
 MAXLOAD=50
 
 # Ping VPN server before connecting
-PINGSERVER=yes
+PINGSERVER=no
 
 # Ping responses may not exceed this amount of milliseconds
 # (needs PINGSERVER=yes to become effective)
@@ -165,7 +165,7 @@ SETMTU=yes
 # wait for this amount of seconds after the
 # connection was established before setting the MTU
 # (needs SETMTU=yes to become effective)
-MTUWAIT=60
+MTUWAIT=0
 
 # Maximum transmission unit to start testing with
 # (needs SETMTU=yes to become effective)
@@ -182,3 +182,6 @@ MTUSTEP=10
 # Amount of pings used to test target for best MTU
 # (needs SETMTU=yes to become effective)
 MTUPINGCOUNT=10
+
+# Speed up MTU test (on the cost of precision)
+MTUSPEEDUP=yes

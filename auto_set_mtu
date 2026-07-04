@@ -31,9 +31,13 @@ BESTMTU=0
 BESTAVGMS=0
 
 MTU="$MINMTU"
+SPEEDUP=""
+if [ "$MTUSPEEDUP" == "yes" ]; then
+  SPEEDUP="-A "
+fi
 while [ "$MTU" -le "$MAXMTU" ]; do
   echo "[*] Testing MTU $MTU..."
-  OUT="$(ping -c "$MTUPINGCOUNT" -s "$MTU" "$MTUTARGET" 2>/dev/null)"
+  OUT=$(ping $SPEEDUP-c "$MTUPINGCOUNT" -s "$MTU" "$MTUTARGET" 2>/dev/null)
   RC=$?
 
   if [ "$RC" -ne 0 ]; then
@@ -53,8 +57,8 @@ while [ "$MTU" -le "$MAXMTU" ]; do
   fi
 
   # Extract sent/received
-  SENT=$(echo "$STATSLINE"   | awk '{print $1}')
-  RECV=$(echo "$STATSLINE"   | awk '{print $4}')
+  SENT=$(echo "$STATSLINE" | awk '{print $1}')
+  RECV=$(echo "$STATSLINE" | awk '{print $4}')
 
   # Measure success rate
   if [ "$SENT" -eq 0 ] || [ "$RECV" -eq 0 ]; then
@@ -64,38 +68,43 @@ while [ "$MTU" -le "$MAXMTU" ]; do
   fi
 
   # Get average value from RTT line
-  AVGMS=$(echo "$RTTLINE" | awk -F'=' '{print $2}' | awk '{print $1}' | awk -F'/' '{print $2}')
+  AVGMS=$(echo "$RTTLINE" | awk -F'=' '{print $2}' \
+  | awk '{print $1}' | awk -F'/' '{print $2}')
 
-  if [ -z "$AVGMS" ]; then
+  if [ "$AVGMS" == "" ]; then
     echo -e "\033[1;31m[!] Couldn't parse average value\033[0m"
     MTU=$((MTU + MTUSTEP))
     continue
   fi
 
-  echo -e "\033[1;36m[>] $RECV/$SENT packets, averagely ${AVGMS} ms\033[0m"
-
   # Only view MTUs with 100% success rate
-  if [ "$RECV" -eq "$SENT" ]; then
+  COLOR="1;36m"
+  if [ "$RECV" -eq "$SENT" ] || [ "$MTUSPEEDUP" == "yes" ]; then
     if [ "$BESTMTU" -eq 0 ]; then
       BESTMTU="$MTU"
       BESTAVGMS="$AVGMS"
+      COLOR="1;33m"
     else
 
       # Numeric comparison
-      BETTER=$(awk -v a="$AVGMS" -v b="$BESTAVGMS" 'BEGIN {if (a < b) print 1; else print 0}')
+      BETTER=$(awk -v a="$AVGMS" -v b="$BESTAVGMS" \
+      'BEGIN {if (a < b) print 1; else print 0}')
       if [ "$BETTER" -eq 1 ]; then
         BESTMTU="$MTU"
         BESTAVGMS="$AVGMS"
-        echo -e "\033[1;32m[+] So far MTU $MTU is best\033[0m"
+        COLOR="1;33m"
       fi
     fi
   fi
 
+  echo -e "\033[1;36m[>] Received $RECV/$SENT pongs," \
+  "averagely\033[0m\033[$COLOR ${AVGMS} ms\033[0m"
   MTU=$((MTU + MTUSTEP))
 done
 
 if [ "$BESTMTU" -eq 0 ]; then
-  echo -e "\033[1;31m[!] Couldn't find an MTU with 100% success within $MINMTU..$MAXMTU\033[0m"
+  echo -e "\033[1;31m[!] Couldn't find an MTU with" \
+  "100% success within $MINMTU..$MAXMTU\033[0m"
   exit 1
 fi
 
