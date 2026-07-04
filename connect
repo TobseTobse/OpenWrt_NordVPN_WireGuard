@@ -42,6 +42,15 @@ get_value() {
 server_info() {
   echo "[*] Getting geolocation information..."
   IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/ 2>/dev/null`
+  COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
+  REGION=`wget -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
+  CITY=`wget -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
+  JSON=`wget -T 10 -q -O - https://ipinfo.io/json 2>/dev/null`
+
+  COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+  grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+  ASN=`echo "$JSON" | sed -n 's/.*"org": "AS[0-9]* \(.*\)".*/\1/p'`
+
   if [ "$IPADDRESS" == "" ]; then
     echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
     echo "[*] Reinvoking VPN connection script..."
@@ -49,13 +58,14 @@ server_info() {
     sh "$0" "$1"
     exit
   fi
-  echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
 
-  COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
-  REGION=`wget -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
-  CITY=`wget -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
   COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
   grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+
+  echo -e "\033[1;36m[>] Your external VPN IP address: $IPADDRESS\033[0m"
+  if [ "$ASN" != "" ]; then
+    echo -e "\033[1;36m[>] VPN ASN: $ASN\033[0m"
+  fi
 
   # Check if server is located in IGNORECOUNTRIES
   LOWERCOUNTRY=$(printf '%s\n' "$COUNTRY" | tr 'A-Z' 'a-z')
@@ -69,7 +79,6 @@ server_info() {
     sh "$0" "$1"
     exit
   fi
-  echo -e "\033[1;36m[>] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"
 }
 
 # Remove server from servers list
@@ -212,7 +221,8 @@ while [ "$i" -le 100 ]; do
         removeserver
         continue
       else
-        echo -e "\033[1;32m[+] Server location looks good\033[0m"
+        echo -e "\033[1;32m[+] Server location ($COUNTRYNAME)" \
+        "is looking good at first glance\033[0m"
       fi
     fi
   fi
@@ -370,26 +380,26 @@ done
 
 # Add default route
 echo "[*] Adding default route..."
-ip route replace default dev wg0 table main
-uci set network.wg0.metric='5'
-uci set network.wan.metric='30'
+ip route replace default dev wg0 table main 2>/dev/null
+uci set network.wg0.metric='5' 2>/dev/null
+uci set network.wan.metric='30' 2>/dev/null
 
 # Policy routing for wg0 (Fallback)
 echo "[*] Adding policy routing..."
-uci -q delete network.wg0_route
-uci set network.wg0_route='route'
-uci set network.wg0_route.interface='wg0'
-uci set network.wg0_route.target='0.0.0.0'
-uci set network.wg0_route.netmask='0'
+uci -q delete network.wg0_route 2>/dev/null
+uci set network.wg0_route='route' 2>/dev/null
+uci set network.wg0_route.interface='wg0' 2>/dev/null
+uci set network.wg0_route.target='0.0.0.0' 2>/dev/null
+uci set network.wg0_route.netmask='0' 2>/dev/null
 
 # Set initial MTU to 1280
 echo "[*] Setting an initial MTU of 1280..."
-uci set network.wg0.mtu='1280'
+uci set network.wg0.mtu='1280' 2>/dev/null
 
 # Commit changes
 echo "[*] Committing changes..."
-uci commit network
-uci commit firewall
+uci commit network 2>/dev/null
+uci commit firewall 2>/dev/null
 
 # Add killswitch
 sh $(dirname "$0")/killswitch
@@ -411,7 +421,7 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
   sleep 1
 done
 if [ "$LASTHANDSHAKE" == "" ]; then
-  echo -e "\033[1;31m[!] ERROR: we are not connected to the VPN\033[0m"
+  echo -e "\033[1;31m[!] ERROR: VPN tunnel could not be established\033[0m"
   echo "[*] Reinvoking VPN connection script..."
   removeserver
   sh "$0" "$1"
@@ -433,7 +443,7 @@ if [ "$TESTSPEED" == "yes" ]; then
 fi
 
 # Find best MTU and set it
-if [ "$SETMTU" == "yes" ] && [ "$RC" -eq 0 ]; then
+if [ "$SETMTU" == "yes" ]; then
   if [ "$MTUWAIT" != "" ] && [ "$MTUWAIT" -gt 0 ]; then
     echo "[*] Having a nap for $MTUWAIT seconds"\
     "before starting the MTU test..."
@@ -445,3 +455,9 @@ fi
 # Last output of server information
 echo -e "\033[1;32m[+] Your server is $SERVERHOST ($IPADDRESS)\033[0m"
 echo -e "\033[1;32m[+] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"
+COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+ASN=`echo "$JSON" | sed -n 's/.*"org": "AS[0-9]* \(.*\)".*/\1/p'`
+if [ "$ASN" != "" ]; then
+  echo -e "\033[1;32m[+] VPN ASN: $ASN\033[0m"
+fi
