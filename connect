@@ -221,7 +221,7 @@ while [ "$i" -le 100 ]; do
         removeserver
         continue
       else
-        echo -e "\033[1;32m[+] Server location ($COUNTRYNAME)" \
+        echo -e "\033[1;32m[+] Announced server location ($COUNTRYNAME)" \
         "is looking good at first glance\033[0m"
       fi
     fi
