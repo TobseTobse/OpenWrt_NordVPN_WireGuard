@@ -132,30 +132,33 @@ RUNCOUNT=0
 } 2>/dev/null
 
 # AWK: Sort all results, take average of fastest 5 measurements
-TOP5AVG=$(awk '
-{
-  speeds[NR] = $1
-  count = NR
-}
-END {
-  # Simple bubble sort
-  for (i=1; i<=count; i++) {
-    for (j=1; j<count; j++) {
-      if (speeds[j] < speeds[j+1]) {
-        temp = speeds[j]; speeds[j] = speeds[j+1]; speeds[j+1] = temp
+TOP5AVG=""
+if [ -f "$ALL_RESULTS_LOG" ]; then
+  TOP5AVG=$(awk '
+  {
+    speeds[NR] = $1
+    count = NR
+  }
+  END {
+    # Simple bubble sort
+    for (i=1; i<=count; i++) {
+      for (j=1; j<count; j++) {
+        if (speeds[j] < speeds[j+1]) {
+          temp = speeds[j]; speeds[j] = speeds[j+1]; speeds[j+1] = temp
+        }
       }
     }
+    sum = 0
+    top_count = (count < 5 ? count : 5)
+    for (i=1; i<=top_count; i++) {
+      sum += speeds[i]
+    }
   }
-  sum = 0
-  top_count = (count < 5 ? count : 5)
-  for (i=1; i<=top_count; i++) {
-    sum += speeds[i]
-  }
-}
-END {
-  TOP5AVG = sprintf("%.2f", sum / top_count)
-  printf "%g", TOP5AVG
-}' $ALL_RESULTS_LOG)
+  END {
+    TOP5AVG = sprintf("%.2f", sum / top_count)
+    printf "%g", TOP5AVG
+  }' $ALL_RESULTS_LOG)
+fi
 
 # Top 5
 if [ "$TOP5AVG" == "" ]; then
