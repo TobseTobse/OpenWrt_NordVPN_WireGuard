@@ -35,13 +35,23 @@ SPEEDUP=""
 if [ "$MTUSPEEDUP" == "yes" ]; then
   SPEEDUP="-A "
 fi
+
+# Try to ping current server first, then use PING_FALLBACK_SERVER as fallback
+OUT=$(ping $SPEEDUP-c "$MTUPINGCOUNT" -w 3 -s "$MTU" "$MTUTARGET" 2>/dev/null)
+RC=$?
+if [ "$RC" -ne 0 ]; then
+  echo -e "\033[0;33m[!] Initial ping test received no pong (RC=$RC)\033[0m"
+  echo -e "\033[1;36m[>] Using fallback server $PING_FALLBACK_SERVER.\033[0m"
+  MTUTARGET=$PING_FALLBACK_SERVER
+fi
+
 while [ "$MTU" -le "$MAXMTU" ]; do
   echo "[*] Testing MTU $MTU..."
-  OUT=$(ping $SPEEDUP-c "$MTUPINGCOUNT" -s "$MTU" "$MTUTARGET" 2>/dev/null)
+  OUT=$(ping $SPEEDUP-c "$MTUPINGCOUNT" -w 3 -s "$MTU" "$MTUTARGET" 2>/dev/null)
   RC=$?
 
   if [ "$RC" -ne 0 ]; then
-    echo -e "\033[1;31m[!] Ping failed (RC=$RC)\033[0m"
+    echo -e "\033[1;31m[!] Ping received no pong (RC=$RC)\033[0m"
     MTU=$((MTU + MTUSTEP))
     continue
   fi

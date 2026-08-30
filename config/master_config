@@ -185,3 +185,9 @@ MTUPINGCOUNT=10
 
 # Speed up MTU test (on the cost of precision)
 MTUSPEEDUP=yes
+
+# Only connect to nearby countries when in random server mode
+RANDOMNEIGHBOR=yes
+
+# Fallback server for ping test to set MTU
+PING_FALLBACK_SERVER=9.9.9.9
