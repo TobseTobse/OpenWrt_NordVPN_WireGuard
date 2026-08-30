@@ -1,0 +1,231 @@
+#!/bin/ash
+
+# Global Neighbor Countries Database (with land and maritime borders)
+# Returns neighbor domain codes for a given country code
+# Usage: get_neighbors "IT" (outputs: AT CH FR MC MT SI)
+
+get_neighbors() {
+    local country="$1"
+    
+    if [ -z "$country" ]; then
+        echo "Usage: get_neighbors <country_code>"
+        return 1
+    fi
+    
+    country=$(echo "$country" | tr '[:lower:]' '[:upper:]')
+    
+    case "$country" in
+        AD) echo "ES FR" ;;
+        AE) echo "OM SA" ;;
+        AF) echo "IR PK TJ TM UZ" ;;
+        AG) echo "BS BB DM GB KN LC VC" ;;
+        AL) echo "GR IT MK RS XK" ;;
+        AM) echo "AZ GE IR TR" ;;
+        AO) echo "CD CG DM NA ZM" ;;
+        AR) echo "BO BR CL PY UY" ;;
+        AT) echo "CZ DE HU IT SI SK" ;;
+        AU) echo "FJ PG TL" ;;
+        AZ) echo "AM GE IR RU TR" ;;
+        BA) echo "HR ME RS" ;;
+        BB) echo "AG GD LC TT VC" ;;
+        BD) echo "IN MM" ;;
+        BE) echo "DE FR LU NL" ;;
+        BF) echo "BJ CI GH ML NE SN TG" ;;
+        BG) echo "GR MK RO RS TR" ;;
+        BH) echo "QA SA" ;;
+        BI) echo "CD KE RW TZ" ;;
+        BJ) echo "BF GH ML NE TG" ;;
+        BN) echo "ID MY" ;;
+        BO) echo "AR BR CL PY" ;;
+        BR) echo "AR BO CO GF GY PE SR UY VE" ;;
+        BS) echo "AG BB CU DO HT JM TC" ;;
+        BT) echo "CN IN" ;;
+        BW) echo "AN NA ZA ZM" ;;
+        BY) echo "LV LT PL RU UA" ;;
+        BZ) echo "GT MX" ;;
+        CA) echo "GL US" ;;
+        CD) echo "AO BJ CG CM GA RW SSD TZ UG ZM" ;;
+        CF) echo "CM CG SSD TD TZ UG" ;;
+        CG) echo "AO CD CM GA" ;;
+        CH) echo "AT DE FR IT LI" ;;
+        CI) echo "BF GH GM ML SN TG" ;;
+        CL) echo "AR BO PE" ;;
+        CM) echo "CF CG GA GQ NG TD" ;;
+        CN) echo "AF BT HK IN KG KP LA MM MN MO NP PA RU TJ VN" ;;
+        CO) echo "BR EC PA PE VE" ;;
+        CR) echo "BZ NI PA" ;;
+        CU) echo "BS BS DO HT JM" ;;
+        CV) echo "SN" ;;
+        CY) echo "GR SY TR" ;;
+        CZ) echo "AT DE PL SK" ;;
+        DE) echo "AT BE CZ DK FR LU NL PL" ;;
+        DJ) echo "ER ET SO" ;;
+        DK) echo "DE SE" ;;
+        DM) echo "AG BB GD KN LC MS VC" ;;
+        DO) echo "BS CU HT JM PR" ;;
+        DZ) echo "LY MA TN" ;;
+        EC) echo "CO PE" ;;
+        EE) echo "LV RU" ;;
+        EG) echo "IL LY SD" ;;
+        ER) echo "DJ ET SD" ;;
+        ES) echo "AD FR MA PT" ;;
+        ET) echo "DJ ER KE SO SS SUD UG" ;;
+        FI) echo "NO SE RU" ;;
+        FJ) echo "AU KI PG SB TO VU WS" ;;
+        FK) echo "AR BR GS" ;;
+        FR) echo "AD AND BE DE GE IT LU MC ES" ;;
+        GA) echo "CG CM EQ" ;;
+        GB) echo "IE" ;;
+        GD) echo "AG BB DM LC MS VC" ;;
+        GE) echo "AM AZ RU TR" ;;
+        GH) echo "BF CI GM TG" ;;
+        GI) echo "ES MA" ;;
+        GL) echo "CA IS" ;;
+        GM) echo "CI GH SN" ;;
+        GN) echo "CI GW LR ML SL SN" ;;
+        GQ) echo "AO CM GA" ;;
+        GR) echo "AL BG MK TR CY" ;;
+        GS) echo "AR FK" ;;
+        GT) echo "BZ CR HN MX SV" ;;
+        GW) echo "GN SN" ;;
+        GY) echo "BR SR VE" ;;
+        HN) echo "BZ CR ES GT NI SV" ;;
+        HR) echo "BA HU ME RS SI" ;;
+        HT) echo "BS CU DO JM PR" ;;
+        HU) echo "AT HR RO RS SK SI" ;;
+        ID) echo "BN MY PG TL" ;;
+        IE) echo "GB UK" ;;
+        IL) echo "EG JO LB PA SY" ;;
+        IN) echo "BD BT CN MM NP PK SL" ;;
+        IQ) echo "IR JO SA SY TR" ;;
+        IR) echo "AF AM AZ IQ PA SY TM TR" ;;
+        IS) echo "GL DK FO NO SE" ;;
+        IT) echo "AT CH FR MC MT SI" ;;
+        JM) echo "BS CU DO HT PR" ;;
+        JO) echo "IL IQ SA SY PS" ;;
+        JP) echo "KP RU" ;;
+        KE) echo "ET MZ SD SO TZ UG" ;;
+        KG) echo "CN KZ TJ UZ" ;;
+        KH) echo "LA TH VN" ;;
+        KN) echo "AG BB DM LC MS VC" ;;
+        KP) echo "CN JP RU" ;;
+        KR) echo "KP" ;;
+        KW) echo "IQ SA" ;;
+        KZ) echo "CN KG RU TJ UZ" ;;
+        LA) echo "CN KH MM TH VN" ;;
+        LB) echo "IL SY" ;;
+        LC) echo "AG BB DM GD MS VC" ;;
+        LI) echo "AT CH" ;;
+        LK) echo "IN MV" ;;
+        LR) echo "GN GM SL SN" ;;
+        LS) echo "ZA" ;;
+        LT) echo "BY LV PL RU" ;;
+        LU) echo "BE DE FR" ;;
+        LV) echo "BY EE LT RU" ;;
+        LY) echo "DZ EG SD TN" ;;
+        MA) echo "DZ ES GI" ;;
+        MC) echo "FR IT" ;;
+        MD) echo "RO UA" ;;
+        ME) echo "AL BA HR KS RS XK" ;;
+        MK) echo "AL BG GR RS" ;;
+        ML) echo "BF GN MR SN" ;;
+        MM) echo "BD CN IN LA TH" ;;
+        MN) echo "CN RU" ;;
+        MO) echo "CN" ;;
+        MR) echo "DZ ML SN" ;;
+        MS) echo "AG BB DM GD KN LC VC" ;;
+        MT) echo "IT" ;;
+        MV) echo "IN LK" ;;
+        MW) echo "MZ TZ ZA ZM" ;;
+        MX) echo "BZ GL GT US" ;;
+        MY) echo "BN ID SG TH" ;;
+        MZ) echo "MW SZ TZ ZA ZM" ;;
+        NA) echo "AO BW ZA" ;;
+        NE) echo "BF BJ TD TG" ;;
+        NG) echo "BJ CM NE" ;;
+        NI) echo "CR ES GT HN PA" ;;
+        NL) echo "BE DE" ;;
+        NO) echo "FI RU SE" ;;
+        NP) echo "BT CN IN" ;;
+        NZ) echo "AU FJ" ;;
+        OM) echo "AE SA YE" ;;
+        PA) echo "CN CO CR" ;;
+        PE) echo "BO BR CL CO EC" ;;
+        PG) echo "AU ID" ;;
+        PH) echo "MY PG TL" ;;
+        PK) echo "AF CN IN IR" ;;
+        PL) echo "BY CZ DE LT RU SK UA" ;;
+        PR) echo "BS CU DO HT JM VI" ;;
+        PS) echo "IL JO" ;;
+        PT) echo "ES MA" ;;
+        PY) echo "AR BO BR" ;;
+        QA) echo "BH SA AE" ;;
+        RO) echo "BG HU MD RS UA" ;;
+        RS) echo "AL BA BG HR HU ME MK RO" ;;
+        RU) echo "AZ BY CN EE FI GE JP KZ LT LV MN MO NO PL UA" ;;
+        RW) echo "BI CD KE TZ UG" ;;
+        SA) echo "AE BH IQ JO KW OM PS QA YE" ;;
+        SB) echo "AU FJ PG VU" ;;
+        SD) echo "EG ER ET LY SS" ;;
+        SE) echo "DK FI NO RU" ;;
+        SG) echo "BN ID MY" ;;
+        SI) echo "AT CR HR HU IT" ;;
+        SK) echo "AT CZ HU PL UA" ;;
+        SL) echo "GN GM LR" ;;
+        SN) echo "BJ CI CV GM GN LR ML MR" ;;
+        SO) echo "DJ ET KE" ;;
+        SS) echo "CF CD ET KE SUD UG" ;;
+        SUD) echo "CF CD ET KE SS UG" ;;
+        SV) echo "GT HN NI" ;;
+        SY) echo "CY IQ IL JO LB TR" ;;
+        SZ) echo "MZ SA ZA" ;;
+        TD) echo "AF CM CF LY NE SUD" ;;
+        TG) echo "BF BJ CI GA GH NE" ;;
+        TH) echo "KH LA MM MY" ;;
+        TJ) echo "AF CN KG KZ UZ" ;;
+        TL) echo "AU ID" ;;
+        TM) echo "AF AZ IQ IR KZ UZ" ;;
+        TN) echo "DZ LY" ;;
+        TO) echo "FJ SB" ;;
+        TR) echo "AM AZ BG CY GE GR IR SY" ;;
+        TT) echo "AG BB GD" ;;
+        TW) echo "CN" ;;
+        TZ) echo "BI CD KE MW MZ RW UG ZA ZM" ;;
+        UA) echo "BY HU MD PL RO RU SK" ;;
+        UG) echo "CD KE RW SD SS SUD TZ" ;;
+        US) echo "CA MX" ;;
+        UY) echo "AR BR" ;;
+        UZ) echo "AF KG KZ TJ TM" ;;
+        VE) echo "BR CO GY" ;;
+        VN) echo "CN KH LA" ;;
+        VU) echo "AU FJ SB" ;;
+        WS) echo "FJ TO" ;;
+        XK) echo "AL ME RS" ;;
+        YE) echo "OM SA" ;;
+        ZA) echo "BW LS MZ SZ" ;;
+        ZM) echo "AO BW CD MW MZ TZ" ;;
+        ZW) echo "BW MW MZ ZA" ;;
+        *)
+            echo "Country code not found: $country"
+            return 1
+            ;;
+    esac
+}
+
+# Show help if not parameter was given
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <country_code>"
+    echo "Example: $0 IT"
+    exit 1
+fi
+
+# Output neighbor countries of parameter 1
+neighbors=$(get_neighbors "$1")
+output=""
+if [ $? -eq 0 ]; then
+    for neighbor in $neighbors; do
+        output="$neighbor,$output"
+    done
+fi
+output=${output%,}
+echo $output

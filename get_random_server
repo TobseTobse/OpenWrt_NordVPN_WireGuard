@@ -9,6 +9,32 @@ if [ -f "$SCRIPTDIR/config/my_config" ]; then
   source $SCRIPTDIR/config/my_config
 fi
 
+# get neighbor countries
+if [ "$RANDOMNEIGHBOR" == "yes" ] && [ "$1" == "" ]; then
+ CURRENTCOUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
+  if [ "$CURRENTCOUNTRY" != "" ]; then
+    LOWERCOUNTRY=$(printf '%s\n' "$CURRENTCOUNTRY" | tr 'A-Z' 'a-z')
+    UPPERCOUNTRY=$(printf '%s\n' "$CURRENTCOUNTRY" | tr 'a-z' 'A-Z')
+    NEIGHBORCOUNTRIES=$(get_neighbor_countries $UPPERCOUNTRY)
+    NEIGHBORCOUNTRIES=$(echo "$NEIGHBORCOUNTRIES" | tr 'A-Z' 'a-z')
+    if [ "$NEIGHBORCOUNTRIES" != "" ]; then
+      CLEAN=""
+      for country in $(echo "$NEIGHBORCOUNTRIES" | tr ',' ' '); do
+        if ! echo ",$IGNORECOUNTRIES," | grep -q ",$country,"; then
+          [ -z "$CLEAN" ] && CLEAN="$country" || CLEAN="$CLEAN,$country"
+        fi
+      done
+      if [ "$CLEAN" != "" ]; then
+        EXCLUSIVECOUNTRIES=$CLEAN
+      else
+		  	RANDOMNEIGHBOR=no
+      fi
+    fi
+  else
+  	RANDOMNEIGHBOR=no
+  fi
+fi
+
 # Group servers by country, randomly pick a country, then a server
 awk -v preferred_country="$1" -v ignore="$IGNORECOUNTRIES" \
 -v exclusive="$EXCLUSIVECOUNTRIES" -v bridges="$BRIDGESERVERS" \
