@@ -40,16 +40,35 @@ get_value() {
 
 # Output server information
 server_info() {
-  echo "[*] Getting geolocation information..."
-  IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/ 2>/dev/null`
-  COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
-  REGION=`wget -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
-  CITY=`wget -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
-  JSON=`wget -T 10 -q -O - https://ipinfo.io/json 2>/dev/null`
+  echo "[*] Determining external IP address..."
 
-  COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
-  grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
-  ASN=`echo "$JSON" | sed -n 's/.*"org": "AS[0-9]* \(.*\)".*/\1/p'`
+  # count amount of URLs for IP address lookup from config
+  AMT=0
+  IPADDRESSURLS=$(echo $IPADDRESSURLS | tr "," "\n")
+  for IPADDRESSURL in $IPADDRESSURLS ; do
+    let AMT=$AMT+1
+  done
+
+  # generate a random number for an entry from the IP address lookop URLs
+  RND=`awk -v min=1 -v max=$AMT 'BEGIN{srand(); print int(min+rand()*(max-min+1))}'`
+
+  # now pick the according URL from the list of lookup servers
+  CNT=0
+  TRIES=0
+  IPADDRESS=""
+
+  while [ "$TRIES" -le 10 ]; do
+    for IPADDRESSURL in $IPADDRESSURLS ; do
+      let CNT=$CNT+1
+      if [ $CNT -eq $RND ]; then
+        IPADDRESS=`wget -t 2 -T 10 -q -O - $IPADDRESSURL 2>/dev/null`
+        if [ $? -eq 0 ] || [ $CNT -gt $RND ]; then
+          break
+        fi
+      fi
+    done
+    let TRIES=$TRIES+1
+  done
 
   if [ "$IPADDRESS" == "" ]; then
     echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
@@ -58,6 +77,17 @@ server_info() {
     sh "$0" "$1"
     exit
   fi
+
+  echo "[*] Getting geolocation information..."
+
+  COUNTRY=`wget -t 2 -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
+  REGION=`wget -t 2 -T 10 -q -O - https://ipinfo.io/region 2>/dev/null`
+  CITY=`wget -t 2 -T 10 -q -O - https://ipinfo.io/city 2>/dev/null`
+  JSON=`wget -t 2 -T 10 -q -O - https://ipinfo.io/json 2>/dev/null`
+
+  COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
+  grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+  ASN=`echo "$JSON" | sed -n 's/.*"org": "AS[0-9]* \(.*\)".*/\1/p'`
 
   COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
   grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
@@ -73,7 +103,7 @@ server_info() {
     echo -e "\033[1;31m[!] Location: $CITY, $REGION region, $COUNTRYNAME\033[0m"
     echo -e "\033[1;31m[!] The endpoint country of $SERVER is excluded by configuration\033[0m"
     ifdown wg0
-    echo -e "\033[1;32m[+] Dropped VPN connection\033[0m"
+    echo -e "\033[1;36m[+] Dropped VPN connection\033[0m"
     echo "[*] Reinvoking VPN connection script..."
     removeserver
     sh "$0" "$1"
@@ -331,14 +361,14 @@ uci add_list network.wg0_peer.allowed_ips='0.0.0.0/0'
 uci add_list network.wg0_peer.allowed_ips='::/0'
 uci commit network
 
-echo -e "\033[1;32m[+] Network configuration has been written\033[0m"
+echo -e "\033[1;36m[+] Network configuration has been written\033[0m"
 
 # Remove old firewall VPN zone
 echo "[*] Removing old firewall VPN zones..."
 IDXZONE=$(uci show firewall | grep "firewall.@zone\[" | \
 grep "name='vpnfirewall'" | sed 's/.*zone\[//;s/\].*//')
 if [ -n "$IDXZONE" ]; then
-  echo -e "\033[1;32m[+] Old vpnfirewall zone has been removed (index $IDXZONE)\033[0m"
+  echo -e "\033[1;36m[+] Old vpnfirewall zone has been removed (index $IDXZONE)\033[0m"
   uci delete firewall.@zone["$IDXZONE"]
 fi
 
@@ -367,7 +397,7 @@ uci add firewall forwarding >/dev/null
 uci set firewall.@forwarding[-1].src='lan'
 uci set firewall.@forwarding[-1].dest='vpnfirewall'
 
-echo -e "\033[1;32m[+] Firewall zone 'vpnfirewall' and forwarding of 'lan' has been configured\033[0m"
+echo -e "\033[1;36m[+] Firewall zone 'vpnfirewall' and forwarding of 'lan' has been configured\033[0m"
 
 # Wait for wg0
 echo "[*] Waiting for virtual device wg0 to come up..."
