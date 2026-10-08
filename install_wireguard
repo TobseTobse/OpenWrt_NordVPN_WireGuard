@@ -2,6 +2,17 @@
 
 PACKAGES="wireguard-tools,kmod-wireguard,luci-proto-wireguard,luci"
 
+# Replaces timeout command
+timeout_cmd() {
+	local duration=$1
+	shift
+	"$@" &
+	local pid=$!
+	sleep "$duration"
+	kill "$pid" 2>/dev/null || return 0
+	wait /tmp/last_package_update
+}
+
 # Add script directory to PATH if it's not there yet
 SCRIPTDIR=$(cd "$(dirname "$0")" && pwd)
 if ! grep -q "$SCRIPTDIR" /etc/profile 2>/dev/null; then
@@ -41,33 +52,45 @@ for FILE in "$SCRIPTDIR"/*; do
   fi
 done
 
-# Install missing packages
-IFS=','
+# get last update time
+LAST_UPDATE_TS=0
+if [ -s "/tmp/last_package_update" ]; then
+	LAST_UPDATE_TS=`cat "/tmp/last_package_update"`
+fi
+NOW_TS=`date +%s`
 
-if [ "$PACKAGEMANAGER" == "opkg" ]; then
-	UPDATEDREPO=false
-	for package in $PACKAGES; do
-		opkg status $package >/dev/null 2>&1
-		if [ ! $? -eq 0 ]; then
-			echo "[*] Installing $package..."
-			if [ "$UPDATEDREPO" == "false" ]; then
-				echo "[*] Updating opkg package repository..."
-				opkg update
-				UPDATEDREPO=true
+# if last update > 24 hrs back: update (timeout 30s)
+if [ $((NOW_TS - LAST_UPDATE_TS)) -gt 86400 ]; then
+
+	# Install missing packages
+	IFS=','
+
+	if [ "$PACKAGEMANAGER" == "opkg" ]; then
+		UPDATEDREPO=false
+		for package in $PACKAGES; do
+			opkg status $package >/dev/null 2>&1
+			if [ ! $? -eq 0 ]; then
+				echo "[*] Installing $package..."
+				if [ "$UPDATEDREPO" == "false" ]; then
+					echo "[*] Updating opkg package repository..."
+					timeout_cmd 30 opkg update
+					UPDATEDREPO=true
+				fi
+			  opkg install $package 2>/dev/null
 			fi
-		  opkg install $package 2>/dev/null
-		fi
-	done
-else
-	echo "[*] Updating apk package repository..."
-	apk update 2>/dev/null >/dev/null
-	for package in $PACKAGES; do
-		apk list $package | grep "\[installed\]" 2>/dev/null >/dev/null
-		if [ ! $? -eq 0 ]; then
-			echo "[*] Installing $package..."
-		  apk add $package 2>/dev/null
-		fi
-	done
+		done
+	else
+		echo "[*] Updating apk package repository..."
+		timeout_cmd 30 apk update 2>/dev/null >/dev/null
+		for package in $PACKAGES; do
+			apk list $package | grep "\[installed\]" 2>/dev/null >/dev/null
+			if [ ! $? -eq 0 ]; then
+				echo "[*] Installing $package..."
+			  apk add $package 2>/dev/null
+			fi
+		done
+	fi
+	echo $NOW_TS > /tmp/last_package_update
 fi
 
 # generate new connection key pair
