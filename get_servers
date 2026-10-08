@@ -19,8 +19,8 @@ fi
 
 # Update the NordVPN servers file if it is older than 1 hour
 GETSERVERJSON=false
-NOW=$(date +%s)
-LIMIT=$((NOW - 60*60))
+NOW_TS=$(date +%s)
+LIMIT=$((NOW_TS - 3600))
 if [ ! -s "$SERVERSJSONFILE" ]; then
   GETSERVERJSON=true
 else
@@ -37,7 +37,7 @@ if [ "$GETSERVERJSON" == "true" ]; then
   if [ -f "$SERVERSJSONFILE" ]; then
     rm $SERVERSJSONFILE
   fi
-  wget -q -T 10 -O $SERVERSJSONFILE $SERVERLISTURL 2>/dev/null
+  wget -q -t 2 -T 10 -O $SERVERSJSONFILE $SERVERLISTURL 2>/dev/null
   touch $SERVERSJSONFILE
 fi
 
