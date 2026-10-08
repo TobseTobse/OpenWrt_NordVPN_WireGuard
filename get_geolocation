@@ -22,8 +22,46 @@ if [ "$GETCOUNTRIES" == "true" ]; then
 fi
 
 # Output VPN server information
+echo "[*] Determining external IP address..."
+
+# count amount of URLs for IP address lookup from config
+AMT=0
+IPADDRESSURLS=$(echo $IPADDRESSURLS | tr "," "\n")
+for IPADDRESSURL in $IPADDRESSURLS ; do
+  let AMT=$AMT+1
+done
+
+# generate a random number for an entry from the IP address lookop URLs
+RND=`awk -v min=1 -v max=$AMT 'BEGIN{srand(); print int(min+rand()*(max-min+1))}'`
+
+# now pick the according URL from the list of lookup servers
+CNT=0
+TRIES=0
+IPADDRESS=""
+
+while [ "$TRIES" -le 10 ]; do
+  for IPADDRESSURL in $IPADDRESSURLS ; do
+    let CNT=$CNT+1
+    if [ $CNT -eq $RND ]; then
+      IPADDRESS=`wget -t 2 -T 10 -q -O - $IPADDRESSURL 2>/dev/null`
+      if [ $? -eq 0 ] || [ $CNT -gt $RND ]; then
+        break
+      fi
+    fi
+  done
+  let TRIES=$TRIES+1
+done
+
+if [ "$IPADDRESS" == "" ]; then
+  echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
+  echo "[*] Reinvoking VPN connection script..."
+  removeserver
+  sh "$0" "$1"
+  exit
+fi
+
 echo "[*] Getting geolocation information..."
-IPADDRESS=`wget -T 10 -q -O - https://api.ipify.org/`
+
 COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country`
 REGION=`wget -T 10 -q -O - https://ipinfo.io/region`
 CITY=`wget -T 10 -q -O - https://ipinfo.io/city`
