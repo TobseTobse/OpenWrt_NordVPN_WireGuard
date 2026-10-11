@@ -1,6 +1,13 @@
 #!/bin/ash
 
 COUNTRYNAMESFILE=/tmp/countries.json
+SCRIPTDIR=$( cd "$( dirname "$0" )" && pwd )
+
+# Load config
+source $SCRIPTDIR/config/master_config
+if [ -f "$SCRIPTDIR/config/my_config" ]; then
+  source $SCRIPTDIR/config/my_config
+fi
 
 # Update TLD list
 echo "[*] Updating countries list..."
@@ -21,9 +28,6 @@ if [ "$GETCOUNTRIES" == "true" ]; then
   wget -q -T 10 -O $COUNTRYNAMESFILE https://country.io/names.json
 fi
 
-# Output VPN server information
-echo "[*] Determining external IP address..."
-
 # count amount of URLs for IP address lookup from config
 AMT=0
 IPADDRESSURLS=$(echo $IPADDRESSURLS | tr "," "\n")
@@ -43,7 +47,11 @@ while [ "$TRIES" -le 10 ]; do
   for IPADDRESSURL in $IPADDRESSURLS ; do
     let CNT=$CNT+1
     if [ $CNT -eq $RND ]; then
+      echo "[*] Determining external IP address via $IPADDRESSURL..."
       IPADDRESS=`wget -t 2 -T 10 -q -O - $IPADDRESSURL 2>/dev/null`
+      if [ "$IPADDRESS" == "" ]; then
+        echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
+      fi
       if [ $? -eq 0 ] || [ $CNT -gt $RND ]; then
         break
       fi
@@ -51,14 +59,6 @@ while [ "$TRIES" -le 10 ]; do
   done
   let TRIES=$TRIES+1
 done
-
-if [ "$IPADDRESS" == "" ]; then
-  echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
-  echo "[*] Reinvoking VPN connection script..."
-  removeserver
-  sh "$0" "$1"
-  exit
-fi
 
 echo "[*] Getting geolocation information..."
 
