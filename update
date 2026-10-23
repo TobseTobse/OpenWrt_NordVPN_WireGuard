@@ -32,6 +32,7 @@ update_file connect
 update_file disable_ipv6
 update_file disconnect
 update_file get_geolocation
+update_file get_neighbor_countries
 update_file get_random_server
 update_file get_servers
 update_file install_wireguard
