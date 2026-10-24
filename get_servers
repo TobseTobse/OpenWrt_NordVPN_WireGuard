@@ -37,7 +37,7 @@ if [ "$GETSERVERJSON" == "true" ]; then
   if [ -f "$SERVERSJSONFILE" ]; then
     rm $SERVERSJSONFILE
   fi
-  wget -q -t 2 -T 10 -O $SERVERSJSONFILE $SERVERLISTURL 2>/dev/null
+  wget -q -T 10 -O $SERVERSJSONFILE $SERVERLISTURL 2>/dev/null
   touch $SERVERSJSONFILE
 fi
 
