@@ -79,7 +79,7 @@ fi
 
 echo "[*] Starting adaptive test..."
 
-BASEURL="http://$SPEEDSERVER/download?size="
+BASEURL="https://$SPEEDSERVER/download?size="
 RUNCOUNT=0
 
 {
@@ -90,8 +90,22 @@ RUNCOUNT=0
 
     for testrun in $(seq 1 3); do
       start=$(date +%s)
-      /bin/uclient-fetch -O /dev/null "$BASEURL$SIZE" 2>"$LOG"
-      end=$(date +%s)
+      if [ -f "$LOG" ]; then
+        rm $LOG
+      fi
+      /bin/uclient-fetch --no-check-certificate -O /dev/null "$BASEURL$SIZE" 2>"$LOG" &
+      WGET_PID=$!
+      secs=0
+      end=$(date +%s)+100
+      while [ $secs -le 10 ]; do
+        sleep 1
+        let secs=$secs+1
+        procs=`ps | grep $WGET_PID | wc -l`
+        if [ $procs -lt 2 ] && [ -s "$LOG" ]; then
+          end=$(date +%s)
+          break
+        fi
+      done
 
       elapsed=$((end - start))
       [ $elapsed -eq 0 ] && elapsed=1
@@ -102,6 +116,7 @@ RUNCOUNT=0
           print $3+0
         }
       }' "$LOG" 2>/dev/null || echo 0)
+
 
       if [ "$bytes" -gt 0 ]; then
         mbps=$(awk "BEGIN { printf \"%.2f\", \
