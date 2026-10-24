@@ -67,12 +67,18 @@ REGION=`wget -T 10 -q -O - https://ipinfo.io/region`
 CITY=`wget -T 10 -q -O - https://ipinfo.io/city`
 JSON=`wget -T 10 -q -O - https://ipinfo.io/json`
 
+REGION=", $REGION"
+if [ "$REGION" == ",  region" ]; then
+  REGION=""
+fi
+
 COUNTRYNAME=`cat $COUNTRYNAMESFILE | \
 grep -E -o "\"$COUNTRY\": \"[^\\"]{3,}\"" | grep -E -o '[^\"]{3,}'`
+COUNTRYNAME=", $COUNTRYNAME"
 ASN=`echo "$JSON" | sed -n 's/.*"org": "AS[0-9]* \(.*\)".*/\1/p'`
 
 echo -e "\033[1;36m[>] Your external IP address: $IPADDRESS\033[0m"
-echo -e "\033[1;36m[>] Location: $CITY, $REGION, $COUNTRYNAME\033[0m"
+echo -e "\033[1;36m[>] Location: $CITY$REGION$COUNTRYNAME\033[0m"
 
 if [ "$ASN" != "" ]; then
   echo -e "\033[1;36m[>] ASN: $ASN\033[0m"
