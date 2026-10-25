@@ -79,38 +79,22 @@ fi
 
 echo "[*] Starting adaptive test..."
 
+BASEURL="http://$SPEEDSERVER/download?size="
 RUNCOUNT=0
-AMT_SIZES=$(set -f; set -- $SIZES; echo "$#")
-TOTAL_RUNS=$((AMT_SIZES*3))
 
 {
-  PEAK=0
   for SIZE in $SIZES; do
     mb=$(awk "BEGIN { print ($SIZE/1024/1024) }")
     echo "[*] Downloading ${mb} MB chunks..."
 
     for testrun in $(seq 1 3); do
-      BASEURL="https://$SPEEDSERVER/download?size="
-      start=$(date +%s)
-      if [ -f "$LOG" ]; then
-        rm $LOG
-      fi
-      /bin/uclient-fetch --no-check-certificate -O /dev/null "$BASEURL$SIZE" 2>"$LOG" &
-      WGET_PID=$!
-      secs=0
-      end=$(date +%s)+100
-      while [ $secs -le 10 ]; do
-        sleep 1
-        let secs=$secs+1
-        procs=`ps | grep $WGET_PID | wc -l`
-        if [ $procs -lt 2 ] && [ -s "$LOG" ]; then
-          end=$(date +%s)
-          break
-        fi
-      done
+      read -r start _ </proc/uptime
+      /bin/uclient-fetch -O /dev/null "$BASEURL$SIZE" 2>"$LOG"
+      read -r end _ </proc/uptime
 
-      elapsed=$((end - start))
-      [ $elapsed -eq 0 ] && elapsed=1
+      elapsed=$(awk -v s="$start" -v e="$end" \
+        'BEGIN { printf "%.3f", (e - s) }')
+      [ $elapsed == .000 ] && elapsed=.001
 
       bytes=$(awk '/Download completed/ {
         gsub(/[()]/, "")
@@ -119,43 +103,19 @@ TOTAL_RUNS=$((AMT_SIZES*3))
         }
       }' "$LOG" 2>/dev/null || echo 0)
 
-
       if [ "$bytes" -gt 0 ]; then
         mbps=$(awk "BEGIN { printf \"%.2f\", \
         ($bytes*8/1024/1024/$elapsed) }")
         echo "$mbps" >> $ALL_RESULTS_LOG
-        if echo "$mbps" | grep -q '\.00$'; then
-          base=$(echo "$mbps" | sed 's/\.00$//')
-          rand_digits=$((($RANDOM % 19)))
-          display=$(printf "%s.%02d\n" "$base" "$rand_digits")
-        else
-          display="$mbps"
-        fi
-        COLOR="1;36m"
-        if awk -v a="$display" -v b="$PEAK" 'BEGIN { exit !((a+0) > (b+0)) }'; then
-          COLOR="1;33m"
-          PEAK="$display"
+        COLOR="0;31m"
+        if awk -v a="$mbps" -v b="$MINIMUMSPEED" 'BEGIN { exit !((a+0) > (b+0)) }'; then
+          COLOR="0;32m"
         fi
         echo -e "\033[1;36m[>] Chunk download #$testrun" \
-        "completed:\033[0m\033[$COLOR ~ $display Mbps\033[0m"
+        "completed:\033[0m\033[$COLOR $mbps Mbps\033[0m"
       else
         echo -e "\033[0;33m[!] Chunk download #$testrun failed" \
         "- ignoring measurement\033[0m"
-        if [ $RUNCOUNT -lt $TOTAL_RUNS ]; then
-          # Get a new test server
-          i=0
-          SPEEDSERVER=""
-          while [ $(expr length "$SPEEDSERVER") -le 5 ] && [ $i -lt 20 ];
-          do
-            get_random_speedserver
-            i=$((i + 1))
-          done
-          if [ $i -ge 19 ] || [ "$SPEEDSERVER" == "" ]; then
-            URL=$DEFAULTSPEEDTESTURL
-            SPEEDSERVER=`echo $URL | sed 's|http://||gI' | sed 's|/.*$||g'`
-          fi
-          echo -e "\033[1;36m[>] Testing against $SPEEDSERVER...\033[0m"
-        fi
       fi
       RUNCOUNT=$((RUNCOUNT + 1))
       sleep 1
@@ -221,4 +181,4 @@ else
   fi
 fi
 
-rm -f "$LOG" "$ALL_RESULTS_LOG"
+# rm -f "$LOG" "$ALL_RESULTS_LOG"
