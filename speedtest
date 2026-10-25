@@ -79,8 +79,9 @@ fi
 
 echo "[*] Starting adaptive test..."
 
-BASEURL="https://$SPEEDSERVER/download?size="
 RUNCOUNT=0
+AMT_SIZES=$(set -f; set -- $SIZES; echo "$#")
+TOTAL_RUNS=$((AMT_SIZES*3))
 
 {
   PEAK=0
@@ -89,6 +90,7 @@ RUNCOUNT=0
     echo "[*] Downloading ${mb} MB chunks..."
 
     for testrun in $(seq 1 3); do
+      BASEURL="https://$SPEEDSERVER/download?size="
       start=$(date +%s)
       if [ -f "$LOG" ]; then
         rm $LOG
@@ -139,6 +141,21 @@ RUNCOUNT=0
       else
         echo -e "\033[0;33m[!] Chunk download #$testrun failed" \
         "- ignoring measurement\033[0m"
+        if [ $RUNCOUNT -lt $TOTAL_RUNS ]; then
+          # Get a new test server
+          i=0
+          SPEEDSERVER=""
+          while [ $(expr length "$SPEEDSERVER") -le 5 ] && [ $i -lt 20 ];
+          do
+            get_random_speedserver
+            i=$((i + 1))
+          done
+          if [ $i -ge 19 ] || [ "$SPEEDSERVER" == "" ]; then
+            URL=$DEFAULTSPEEDTESTURL
+            SPEEDSERVER=`echo $URL | sed 's|http://||gI' | sed 's|/.*$||g'`
+          fi
+          echo -e "\033[1;36m[>] Testing against $SPEEDSERVER...\033[0m"
+        fi
       fi
       RUNCOUNT=$((RUNCOUNT + 1))
       sleep 1
