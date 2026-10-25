@@ -8,6 +8,10 @@ SPEEDSERVERSFILE=/tmp/speedservers.xml
 DEFAULTSPEEDTESTURL=https://fra.fdcservers.net:8080/speedtest
 SIZES="2097152 4194304 8388608 12582912"
 
+# print version number
+version=`date -r "$0" '+%y.%m.%dr%H%M'`
+echo "[i] Speedtest v$version"
+
 # Load config
 echo "[*] Loading master config..."
 source $SCRIPTDIR/config/master_config
@@ -79,17 +83,23 @@ fi
 
 echo "[*] Starting adaptive test..."
 
-BASEURL="http://$SPEEDSERVER/download?size="
 RUNCOUNT=0
+AMT_SIZES=$(set -f; set -- $SIZES; echo "$#")
+TOTAL_RUNS=$((AMT_SIZES*3))
 
 {
+  PEAK=0
   for SIZE in $SIZES; do
     mb=$(awk "BEGIN { print ($SIZE/1024/1024) }")
     echo "[*] Downloading ${mb} MB chunks..."
 
     for testrun in $(seq 1 3); do
+      BASEURL="https://$SPEEDSERVER/download?size="
+      if [ -f "$LOG" ]; then
+        rm $LOG
+      fi
       read -r start _ </proc/uptime
-      /bin/uclient-fetch -O /dev/null "$BASEURL$SIZE" 2>"$LOG"
+      /bin/uclient-fetch --no-check-certificate -T 10 -O /dev/null "$BASEURL$SIZE" 2>"$LOG"
       read -r end _ </proc/uptime
 
       elapsed=$(awk -v s="$start" -v e="$end" \
@@ -102,6 +112,7 @@ RUNCOUNT=0
           print $3+0
         }
       }' "$LOG" 2>/dev/null || echo 0)
+
 
       if [ "$bytes" -gt 0 ]; then
         mbps=$(awk "BEGIN { printf \"%.2f\", \
@@ -116,6 +127,21 @@ RUNCOUNT=0
       else
         echo -e "\033[0;33m[!] Chunk download #$testrun failed" \
         "- ignoring measurement\033[0m"
+        if [ $RUNCOUNT -lt $((TOTAL_RUNS -1)) ]; then
+          # Get a new test server
+          i=0
+          SPEEDSERVER=""
+          while [ $(expr length "$SPEEDSERVER") -le 5 ] && [ $i -lt 20 ];
+          do
+            get_random_speedserver
+            i=$((i + 1))
+          done
+          if [ $i -ge 19 ] || [ "$SPEEDSERVER" == "" ]; then
+            URL=$DEFAULTSPEEDTESTURL
+            SPEEDSERVER=`echo $URL | sed 's|http://||gI' | sed 's|/.*$||g'`
+          fi
+          echo -e "\033[1;36m[>] Testing against $SPEEDSERVER...\033[0m"
+        fi
       fi
       RUNCOUNT=$((RUNCOUNT + 1))
       sleep 1
@@ -181,4 +207,4 @@ else
   fi
 fi
 
-# rm -f "$LOG" "$ALL_RESULTS_LOG"
+rm -f "$LOG" "$ALL_RESULTS_LOG"
