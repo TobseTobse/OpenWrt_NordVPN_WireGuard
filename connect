@@ -148,10 +148,6 @@ refreshserverlists() {
   exit
 }
 
-# print version number
-version=`date -r "$0" '+%y.%m.%dr%H%M'`
-echo "[i] Connect v$version"
-
 # Load config
 echo "[*] Loading master config..."
 source $SCRIPTDIR/config/master_config

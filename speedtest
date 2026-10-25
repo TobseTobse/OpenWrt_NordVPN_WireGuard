@@ -8,10 +8,6 @@ SPEEDSERVERSFILE=/tmp/speedservers.xml
 DEFAULTSPEEDTESTURL=https://fra.fdcservers.net:8080/speedtest
 SIZES="2097152 4194304 8388608 12582912"
 
-# print version number
-version=`date -r "$0" '+%y.%m.%dr%H%M'`
-echo "[i] Speedtest v$version"
-
 # Load config
 echo "[*] Loading master config..."
 source $SCRIPTDIR/config/master_config
