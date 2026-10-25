@@ -141,7 +141,7 @@ TOTAL_RUNS=$((AMT_SIZES*3))
       else
         echo -e "\033[0;33m[!] Chunk download #$testrun failed" \
         "- ignoring measurement\033[0m"
-        if [ $RUNCOUNT -lt $TOTAL_RUNS ]; then
+        if [ $RUNCOUNT -lt $((TOTAL_RUNS -1)) ]; then
           # Get a new test server
           i=0
           SPEEDSERVER=""
