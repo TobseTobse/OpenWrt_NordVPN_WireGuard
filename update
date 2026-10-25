@@ -3,6 +3,10 @@
 GITHUBURL=https://raw.githubusercontent.com/TobseTobse/OpenWrt_NordVPN_WireGuard/main
 SCRIPTDIR=$( cd "$( dirname "$0" )" && pwd )
 
+# print version number
+version=`date -r "$0" '+%y.%m.%dr%H%M'`
+echo "[i] Update v$version"
+
 # create config directories if they don't exist yet
 if [ ! -d "/tmp/config" ]; then
   echo "[*] Creating /tmp/config directory..."
