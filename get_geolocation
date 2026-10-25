@@ -48,7 +48,7 @@ while [ "$TRIES" -le 10 ]; do
     let CNT=$CNT+1
     if [ $CNT -eq $RND ]; then
       echo "[*] Determining external IP address via $IPADDRESSURL..."
-      IPADDRESS=`wget -t 2 -T 10 -q -O - $IPADDRESSURL 2>/dev/null`
+      IPADDRESS=`wget -T 10 -q -O - $IPADDRESSURL 2>/dev/null`
       if [ "$IPADDRESS" == "" ]; then
         echo -e "\033[1;31m[!] Got no external IP - there's something rotten in the state of Denmark\033[0m"
       fi

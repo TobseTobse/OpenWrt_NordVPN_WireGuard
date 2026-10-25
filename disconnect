@@ -69,7 +69,7 @@ fi
 sleep 3
 
 # remember real (non VPN) country
-COUNTRY=`wget -t 2 -T 10 -q -O - https://ipinfo.io/country`
+COUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country`
 echo $COUNTRY > /tmp/realcountry
 
 # Output geolocation information

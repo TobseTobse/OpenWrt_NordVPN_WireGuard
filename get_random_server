@@ -14,7 +14,7 @@ if [ "$RANDOMNEIGHBOR" == "yes" ] && [ "$1" == "" ]; then
   if [ -s "/tmp/realcountry" ]; then
     CURRENTCOUNTRY=`cat /tmp/realcountry`
   else
-    CURRENTCOUNTRY=`wget -t 2 -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
+    CURRENTCOUNTRY=`wget -T 10 -q -O - https://ipinfo.io/country 2>/dev/null`
   fi
   if [ "$CURRENTCOUNTRY" != "" ]; then
     LOWERCOUNTRY=$(printf '%s\n' "$CURRENTCOUNTRY" | tr 'A-Z' 'a-z')
